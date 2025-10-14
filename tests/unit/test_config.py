@@ -60,23 +60,49 @@ def test_settings_embedding_config():
 
 def test_settings_required_fields():
     """测试必填字段验证"""
-    # 临时清除必填字段
-    api_key_backup = os.environ.get("API_KEY")
-    milvus_host_backup = os.environ.get("MILVUS_HOST")
-
-    try:
-        del os.environ["API_KEY"]
-        del os.environ["MILVUS_HOST"]
-
-        with pytest.raises(ValidationError):
-            Settings()
-
-    finally:
-        # 恢复环境变量
-        if api_key_backup:
-            os.environ["API_KEY"] = api_key_backup
-        if milvus_host_backup:
-            os.environ["MILVUS_HOST"] = milvus_host_backup
+    from unittest.mock import patch, MagicMock
+    
+    # 测试缺少 api_key 字段
+    # 需要 patch BaseSettings 的 model_config 以避免加载 .env 文件
+    with patch.dict(
+        os.environ,
+        {
+            "LLM_PROVIDER": "deepseek",
+            "DEEPSEEK_API_KEY": "test-key",
+            "MILVUS_HOST": "localhost",
+            # 故意不设置 API_KEY
+        },
+        clear=True
+    ):
+        # 临时修改 model_config 以禁用 .env 文件加载
+        original_config = Settings.model_config.copy()
+        try:
+            Settings.model_config['env_file'] = None
+            # 缺少 API_KEY 应该抛出 ValidationError
+            with pytest.raises(ValidationError):
+                Settings()
+        finally:
+            # 恢复原始配置
+            Settings.model_config.update(original_config)
+    
+    # 测试缺少 milvus_host 字段
+    with patch.dict(
+        os.environ,
+        {
+            "LLM_PROVIDER": "deepseek",
+            "DEEPSEEK_API_KEY": "test-key",
+            "API_KEY": "test-api-key",
+            # 故意不设置 MILVUS_HOST
+        },
+        clear=True
+    ):
+        try:
+            Settings.model_config['env_file'] = None
+            # 缺少 MILVUS_HOST 应该抛出 ValidationError
+            with pytest.raises(ValidationError):
+                Settings()
+        finally:
+            Settings.model_config.update(original_config)
 
 
 def test_settings_llm_provider_validation():

@@ -93,6 +93,10 @@ async def retrieve_node(state: AgentState) -> dict[str, Any]:
         更新的状态（包含 retrieved_docs 和 confidence_score）
     """
     # 获取查询
+    if not state["messages"]:
+        logger.warning("⚠️ Retrieve node: empty messages")
+        return {"retrieved_docs": [], "confidence_score": 0.0}
+    
     last_message = state["messages"][-1]
     query = last_message.content if isinstance(last_message, HumanMessage) else ""
 
