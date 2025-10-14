@@ -5,6 +5,7 @@
 """
 
 import os
+
 import pytest
 from pydantic import ValidationError
 
@@ -58,10 +59,18 @@ def test_settings_embedding_config():
     assert settings.embedding_dim == 1536
 
 
+# TECH DEBT: 当前测试通过修改 Settings.model_config 来绕过验证
+# 追踪: https://github.com/alx18779-coder/website-live-chat-agent/issues/4
+# 这依赖 Pydantic 内部实现，未来升级时可能失败
+# 建议重构为使用独立的测试配置类或 pytest.fixture
+# 参考方案：
+#   1. 使用 pytest.MonkeyPatch
+#   2. 使用 Pydantic 的 model_construct()
+#   3. 创建专用测试配置类
 def test_settings_required_fields():
     """测试必填字段验证"""
-    from unittest.mock import patch, MagicMock
-    
+    from unittest.mock import patch
+
     # 测试缺少 api_key 字段
     # 需要 patch BaseSettings 的 model_config 以避免加载 .env 文件
     with patch.dict(
@@ -84,7 +93,7 @@ def test_settings_required_fields():
         finally:
             # 恢复原始配置
             Settings.model_config.update(original_config)
-    
+
     # 测试缺少 milvus_host 字段
     with patch.dict(
         os.environ,

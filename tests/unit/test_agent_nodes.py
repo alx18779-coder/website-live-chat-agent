@@ -4,11 +4,12 @@
 测试 LangGraph 节点函数的行为。
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from unittest.mock import patch
 
-from src.agent.nodes import router_node, retrieve_node, call_llm_node
+import pytest
+from langchain_core.messages import AIMessage, HumanMessage
+
+from src.agent.nodes import call_llm_node, retrieve_node, router_node
 from src.agent.state import AgentState
 
 

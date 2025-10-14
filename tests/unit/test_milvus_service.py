@@ -4,11 +4,11 @@
 测试 Milvus 向量数据库的连接、检索和插入逻辑。
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.services.milvus_service import MilvusService, milvus_service
-from src.core.exceptions import MilvusError
+import pytest
+
+from src.services.milvus_service import MilvusService
 
 
 @pytest.mark.asyncio
@@ -82,10 +82,10 @@ async def test_milvus_search_empty_query():
     # 空的 embedding 向量会在 Milvus 搜索时触发错误
     # 这里测试传入空列表
     empty_embedding = []
-    
+
     # Mock search to raise an error for empty embedding
     service.knowledge_collection.search.side_effect = ValueError("Invalid embedding")
-    
+
     with pytest.raises(ValueError):
         await service.search_knowledge(query_embedding=empty_embedding, top_k=3)
 
