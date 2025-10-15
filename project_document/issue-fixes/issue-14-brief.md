@@ -22,4 +22,5 @@
 - ✅ 向后兼容性验证通过
 
 ## PR
-- 创建后于此补充链接
+- PR #15: https://github.com/alx18779-coder/website-live-chat-agent/pull/15
+- 状态: 等待 AR 审查
