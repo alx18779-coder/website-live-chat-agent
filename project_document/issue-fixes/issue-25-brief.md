@@ -57,7 +57,8 @@
 - [x] 条件4：更新配置文档和示例
 
 ## PR
-- 待创建
+- PR #26: https://github.com/alx18779-coder/website-live-chat-agent/pull/26
+- 状态: 等待 AR 审查
 
 ## 备注
 - 修复了14个失败的embedding测试用例
