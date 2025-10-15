@@ -280,8 +280,9 @@ class TestEmbeddingFactory:
 
     def test_create_embeddings_invalid_provider(self):
         """测试无效的embedding provider"""
-        from src.core.config import Settings
         from pydantic import ValidationError
+
+        from src.core.config import Settings
 
         # Pydantic会在Settings初始化时验证provider字段
         with patch.dict(os.environ, {

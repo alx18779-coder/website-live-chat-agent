@@ -19,6 +19,26 @@ class Settings(BaseSettings):
         default="deepseek", description="LLM 提供商"
     )
 
+    # ===== LLM URL 配置 =====
+    # 通用独立URL配置（最高优先级）
+    llm_base_url_field: str | None = Field(
+        default=None, description="独立LLM Base URL（优先级最高）"
+    )
+
+    # 提供商特定URL配置
+    openai_llm_base_url: str | None = Field(
+        default=None, description="OpenAI LLM Base URL"
+    )
+    deepseek_llm_base_url: str | None = Field(
+        default=None, description="DeepSeek LLM Base URL"
+    )
+    siliconflow_llm_base_url: str | None = Field(
+        default=None, description="SiliconFlow LLM Base URL"
+    )
+    anthropic_llm_base_url: str | None = Field(
+        default=None, description="Anthropic LLM Base URL"
+    )
+
     # DeepSeek 配置
     deepseek_api_key: str | None = Field(default=None, description="DeepSeek API Key")
     deepseek_base_url: str = Field(
@@ -232,14 +252,27 @@ class Settings(BaseSettings):
 
     @property
     def llm_base_url(self) -> str | None:
-        """根据 LLM 提供商返回对应的 Base URL"""
+        """根据 LLM 提供商返回对应的 Base URL（智能优先级）"""
+        # 优先级1: 通用独立URL（最高优先级）
+        if self.llm_base_url_field:
+            return self.llm_base_url_field
+
+        # 优先级2: 提供商特定URL
         if self.llm_provider == "deepseek":
+            if self.deepseek_llm_base_url:
+                return self.deepseek_llm_base_url
             return self.deepseek_base_url
         elif self.llm_provider == "openai":
+            if self.openai_llm_base_url:
+                return self.openai_llm_base_url
             return None  # OpenAI 使用默认 URL
         elif self.llm_provider == "anthropic":
+            if self.anthropic_llm_base_url:
+                return self.anthropic_llm_base_url
             return None  # Anthropic 使用默认 URL
         elif self.llm_provider == "siliconflow":
+            if self.siliconflow_llm_base_url:
+                return self.siliconflow_llm_base_url
             return self.siliconflow_base_url
         else:
             raise ValueError(f"Unsupported LLM provider: {self.llm_provider}")
@@ -250,11 +283,11 @@ class Settings(BaseSettings):
         # 本地模型不需要 API Key
         if self.embedding_provider == "local":
             return ""
-        
+
         # 优先级1: 通用独立API Key（最高优先级）
         if self.embedding_api_key_field:
             return self.embedding_api_key_field
-        
+
         # 优先级2: 提供商特定API Key
         if self.embedding_provider == "deepseek":
             if self.deepseek_embedding_api_key:
