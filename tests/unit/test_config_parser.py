@@ -5,6 +5,7 @@
 """
 
 import pytest
+
 from src.core.config_parser import URLConfigParser, URLPriority
 
 
@@ -19,10 +20,10 @@ class TestURLConfigParser:
             "deepseek_base_url": "https://api.deepseek.com/v1"
         }
         parser = URLConfigParser(config)
-        
+
         url = parser.resolve_embedding_url("deepseek")
         assert url == "https://independent.com/v1"
-        
+
         priority = parser.get_url_priority("deepseek")
         assert priority == URLPriority.INDEPENDENT
 
@@ -34,10 +35,10 @@ class TestURLConfigParser:
             "deepseek_base_url": "https://api.deepseek.com/v1"
         }
         parser = URLConfigParser(config)
-        
+
         url = parser.resolve_embedding_url("deepseek")
         assert url == "https://embedding.deepseek.com/v1"
-        
+
         priority = parser.get_url_priority("deepseek")
         assert priority == URLPriority.PROVIDER_SPECIFIC
 
@@ -49,10 +50,10 @@ class TestURLConfigParser:
             "deepseek_base_url": "https://api.deepseek.com/v1"
         }
         parser = URLConfigParser(config)
-        
+
         url = parser.resolve_embedding_url("deepseek")
         assert url == "https://api.deepseek.com/v1"
-        
+
         priority = parser.get_url_priority("deepseek")
         assert priority == URLPriority.SHARED
 
@@ -64,10 +65,10 @@ class TestURLConfigParser:
             "deepseek_base_url": None
         }
         parser = URLConfigParser(config)
-        
+
         url = parser.resolve_embedding_url("deepseek")
         assert url is None
-        
+
         priority = parser.get_url_priority("deepseek")
         assert priority == URLPriority.SHARED
 
@@ -79,10 +80,10 @@ class TestURLConfigParser:
             "openai_base_url": None
         }
         parser = URLConfigParser(config)
-        
+
         url = parser.resolve_embedding_url("openai")
         assert url == "https://api.openai.com/v1"
-        
+
         priority = parser.get_url_priority("openai")
         assert priority == URLPriority.PROVIDER_SPECIFIC
 
@@ -94,10 +95,10 @@ class TestURLConfigParser:
             "siliconflow_base_url": "https://api.siliconflow.cn/v1"
         }
         parser = URLConfigParser(config)
-        
+
         url = parser.resolve_embedding_url("siliconflow")
         assert url == "https://embedding.siliconflow.cn/v1"
-        
+
         priority = parser.get_url_priority("siliconflow")
         assert priority == URLPriority.PROVIDER_SPECIFIC
 
@@ -109,10 +110,10 @@ class TestURLConfigParser:
             "anthropic_base_url": None
         }
         parser = URLConfigParser(config)
-        
+
         url = parser.resolve_embedding_url("anthropic")
         assert url == "https://api.anthropic.com/v1"
-        
+
         priority = parser.get_url_priority("anthropic")
         assert priority == URLPriority.PROVIDER_SPECIFIC
 
@@ -124,10 +125,10 @@ class TestURLConfigParser:
             "local_base_url": None
         }
         parser = URLConfigParser(config)
-        
+
         url = parser.resolve_embedding_url("local")
         assert url is None
-        
+
         priority = parser.get_url_priority("local")
         assert priority == URLPriority.SHARED
 
@@ -135,7 +136,7 @@ class TestURLConfigParser:
         """测试不支持的提供商"""
         config = {}
         parser = URLConfigParser(config)
-        
+
         with pytest.raises(ValueError, match="Unsupported embedding provider: invalid"):
             parser.resolve_embedding_url("invalid")
 
@@ -143,12 +144,12 @@ class TestURLConfigParser:
         """测试URL验证 - 有效URL"""
         config = {}
         parser = URLConfigParser(config)
-        
+
         # 测试HTTPS URL
         result = parser.validate_url("https://api.example.com/v1")
         assert result["valid"] is True
         assert result["error"] is None
-        
+
         # 测试HTTP URL
         result = parser.validate_url("http://api.example.com/v1")
         assert result["valid"] is True
@@ -158,16 +159,16 @@ class TestURLConfigParser:
         """测试URL验证 - 无效URL"""
         config = {}
         parser = URLConfigParser(config)
-        
+
         # 测试无效格式
         result = parser.validate_url("invalid-url")
         assert result["valid"] is False
         assert "Invalid URL format" in result["error"]
-        
+
         # 测试空URL
         result = parser.validate_url("")
         assert result["valid"] is True  # 空URL被认为是有效的（未配置）
-        
+
         # 测试None
         result = parser.validate_url(None)
         assert result["valid"] is True  # None被认为是有效的（未配置）
@@ -182,9 +183,9 @@ class TestURLConfigParser:
             "anthropic_embedding_base_url": "https://api.anthropic.com/v1"
         }
         parser = URLConfigParser(config)
-        
+
         all_urls = parser.get_all_embedding_urls()
-        
+
         assert all_urls["embedding_base_url"] == "https://independent.com/v1"
         assert all_urls["openai_embedding_base_url"] == "https://api.openai.com/v1"
         assert all_urls["deepseek_embedding_base_url"] == "https://embedding.deepseek.com/v1"
@@ -199,11 +200,11 @@ class TestURLConfigParser:
             "deepseek_base_url": "https://api.deepseek.com/v1"
         }
         parser = URLConfigParser(config)
-        
+
         # 独立URL应该覆盖所有其他配置
         url = parser.resolve_embedding_url("deepseek")
         assert url == "https://independent.com/v1"
-        
+
         # 提供商特定URL应该覆盖共享URL
         config["embedding_base_url"] = None
         parser = URLConfigParser(config)
@@ -219,19 +220,19 @@ class TestURLConfigParser:
             "siliconflow_base_url": "https://api.siliconflow.cn/v1"
         }
         parser = URLConfigParser(config)
-        
+
         # DeepSeek应该使用传统URL
         url = parser.resolve_embedding_url("deepseek")
         assert url == "https://api.deepseek.com/v1"
-        
+
         # SiliconFlow应该使用传统URL
         url = parser.resolve_embedding_url("siliconflow")
         assert url == "https://api.siliconflow.cn/v1"
-        
+
         # OpenAI应该返回None（使用默认URL）
         url = parser.resolve_embedding_url("openai")
         assert url is None
-        
+
         # Anthropic应该返回None（使用默认URL）
         url = parser.resolve_embedding_url("anthropic")
         assert url is None
@@ -248,7 +249,7 @@ class TestURLConfigParser:
             "siliconflow_base_url": "https://api.siliconflow.cn/v1"
         }
         parser = URLConfigParser(config)
-        
+
         # 所有提供商都应该使用独立URL
         for provider in ["openai", "deepseek", "siliconflow", "anthropic"]:
             url = parser.resolve_embedding_url(provider)
@@ -260,7 +261,7 @@ class TestURLConfigParser:
         """测试空配置"""
         config = {}
         parser = URLConfigParser(config)
-        
+
         # 所有提供商都应该返回None
         for provider in ["openai", "deepseek", "siliconflow", "anthropic", "local"]:
             url = parser.resolve_embedding_url(provider)
@@ -275,15 +276,15 @@ class TestURLConfigParser:
             "siliconflow_base_url": "https://api.siliconflow.cn/v1"
         }
         parser = URLConfigParser(config)
-        
+
         # DeepSeek应该使用提供商特定URL
         url = parser.resolve_embedding_url("deepseek")
         assert url == "https://embedding.deepseek.com/v1"
-        
+
         # SiliconFlow应该使用共享URL
         url = parser.resolve_embedding_url("siliconflow")
         assert url == "https://api.siliconflow.cn/v1"
-        
+
         # 其他提供商应该返回None
         for provider in ["openai", "anthropic", "local"]:
             url = parser.resolve_embedding_url(provider)
@@ -318,7 +319,7 @@ class TestURLConfigParserIntegration:
             "anthropic_embedding_base_url": "https://api.anthropic.com/v1"
         }
         parser = URLConfigParser(config)
-        
+
         # 所有提供商都应该使用企业级独立URL
         for provider in ["openai", "deepseek", "siliconflow", "anthropic"]:
             url = parser.resolve_embedding_url(provider)
@@ -335,15 +336,15 @@ class TestURLConfigParserIntegration:
             "siliconflow_base_url": "https://api.siliconflow.cn/v1"
         }
         parser = URLConfigParser(config)
-        
+
         # OpenAI应该使用提供商特定URL
         url = parser.resolve_embedding_url("openai")
         assert url == "https://api.openai.com/v1"
-        
+
         # DeepSeek应该使用共享URL
         url = parser.resolve_embedding_url("deepseek")
         assert url == "https://api.deepseek.com/v1"
-        
+
         # SiliconFlow应该使用提供商特定URL
         url = parser.resolve_embedding_url("siliconflow")
         assert url == "https://embedding.siliconflow.cn/v1"
@@ -358,7 +359,7 @@ class TestURLConfigParserIntegration:
             "anthropic_embedding_base_url": None
         }
         parser = URLConfigParser(config)
-        
+
         # 所有提供商都应该使用开发环境独立URL
         for provider in ["openai", "deepseek", "siliconflow", "anthropic"]:
             url = parser.resolve_embedding_url(provider)

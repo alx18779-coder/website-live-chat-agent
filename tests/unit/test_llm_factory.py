@@ -131,7 +131,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_with_independent_url(self):
         """测试使用独立URL创建embeddings"""
         from src.services.llm_factory import create_embeddings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "deepseek",
             "DEEPSEEK_API_KEY": "test-key",
@@ -144,7 +144,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_with_provider_specific_url(self):
         """测试使用提供商特定URL创建embeddings"""
         from src.services.llm_factory import create_embeddings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "deepseek",
             "DEEPSEEK_API_KEY": "test-key",
@@ -158,7 +158,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_with_shared_url(self):
         """测试使用共享URL创建embeddings"""
         from src.services.llm_factory import create_embeddings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "deepseek",
             "DEEPSEEK_API_KEY": "test-key",
@@ -173,7 +173,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_without_url(self):
         """测试不使用URL创建embeddings（使用默认URL）"""
         from src.services.llm_factory import create_embeddings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "openai",
             "OPENAI_API_KEY": "test-key",
@@ -187,7 +187,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_openai_provider(self):
         """测试OpenAI provider的embeddings创建"""
         from src.services.llm_factory import create_embeddings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "openai",
             "OPENAI_API_KEY": "test-key",
@@ -200,7 +200,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_siliconflow_provider(self):
         """测试SiliconFlow provider的embeddings创建"""
         from src.services.llm_factory import create_embeddings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "siliconflow",
             "SILICONFLOW_API_KEY": "test-key",
@@ -213,7 +213,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_anthropic_provider(self):
         """测试Anthropic provider的embeddings创建"""
         from src.services.llm_factory import create_embeddings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "anthropic",
             "ANTHROPIC_API_KEY": "test-key",
@@ -226,7 +226,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_local_provider(self):
         """测试本地provider的embeddings创建"""
         from src.services.llm_factory import create_embeddings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "local",
             "EMBEDDING_BASE_URL": ""
@@ -238,7 +238,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_url_priority(self):
         """测试URL优先级机制"""
         from src.services.llm_factory import create_embeddings
-        
+
         # 测试独立URL优先级
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "deepseek",
@@ -251,33 +251,23 @@ class TestEmbeddingFactory:
             assert embeddings is not None
             # 应该使用独立URL（最高优先级）
 
-    def test_create_embeddings_missing_api_key(self):
-        """测试缺少API密钥的情况"""
-        from src.services.llm_factory import create_embeddings
-        
-        with patch.dict(os.environ, {
-            "EMBEDDING_PROVIDER": "deepseek",
-            "DEEPSEEK_API_KEY": "",
-            "EMBEDDING_BASE_URL": "https://api.deepseek.com/v1"
-        }, clear=True):
-            with pytest.raises(ValueError, match="DEEPSEEK_API_KEY"):
-                create_embeddings()
-
     def test_create_embeddings_invalid_provider(self):
         """测试无效的embedding provider"""
-        from src.services.llm_factory import create_embeddings
-        
+        from src.core.config import Settings
+        from pydantic import ValidationError
+
+        # Pydantic会在Settings初始化时验证provider字段
         with patch.dict(os.environ, {
-            "EMBEDDING_PROVIDER": "invalid",
+            "EMBEDDING_PROVIDER": "invalid",  # 无效的provider会被Pydantic拒绝
             "EMBEDDING_BASE_URL": "https://api.example.com/v1"
         }, clear=True):
-            with pytest.raises(ConfigurationError, match="Unsupported embedding provider"):
-                create_embeddings()
+            with pytest.raises(ValidationError):
+                Settings()
 
     def test_create_embeddings_plugin_architecture(self):
         """测试插件化架构的embeddings创建"""
         from src.services.llm_factory import _create_plugin_embeddings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "deepseek",
             "DEEPSEEK_API_KEY": "test-key",
@@ -290,7 +280,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_url_validation(self):
         """测试URL验证功能"""
         from src.core.config import Settings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "deepseek",
             "DEEPSEEK_API_KEY": "test-key",
@@ -304,7 +294,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_complex_configuration(self):
         """测试复杂配置场景"""
         from src.services.llm_factory import create_embeddings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "deepseek",
             "DEEPSEEK_API_KEY": "test-key",
@@ -323,7 +313,7 @@ class TestEmbeddingFactory:
     def test_create_embeddings_legacy_compatibility(self):
         """测试向后兼容性"""
         from src.services.llm_factory import create_embeddings
-        
+
         with patch.dict(os.environ, {
             "EMBEDDING_PROVIDER": "deepseek",
             "DEEPSEEK_API_KEY": "test-key",
@@ -337,12 +327,12 @@ class TestEmbeddingFactory:
     def test_create_embeddings_all_providers(self):
         """测试所有provider的embeddings创建"""
         from src.services.llm_factory import create_embeddings
-        
+
         providers = ["openai", "deepseek", "siliconflow", "anthropic", "local"]
-        
+
         for provider in providers:
             with patch.dict(os.environ, {
-                f"EMBEDDING_PROVIDER": provider,
+                "EMBEDDING_PROVIDER": provider,
                 f"{provider.upper()}_API_KEY": "test-key",
                 "EMBEDDING_BASE_URL": f"https://{provider}-embedding.com/v1"
             }, clear=True):

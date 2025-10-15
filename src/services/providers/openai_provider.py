@@ -56,11 +56,11 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
             "model": self.config.get("model", "text-embedding-3-small"),
             "openai_api_key": self.config["api_key"],
         }
-        
+
         # 添加base_url（如果提供）
         if "base_url" in self.config and self.config["base_url"]:
             config["openai_api_base"] = self.config["base_url"]
-            
+
         return OpenAIEmbeddings(**config)
 
     def get_models(self) -> List[str]:

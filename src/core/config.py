@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     embedding_base_url: str | None = Field(
         default=None, description="独立Embedding Base URL（优先级最高）"
     )
-    
+
     # 提供商特定URL配置
     openai_embedding_base_url: str | None = Field(
         default=None, description="OpenAI Embedding Base URL"
@@ -244,11 +244,10 @@ class Settings(BaseSettings):
         else:
             raise ValueError(f"Unsupported embedding provider: {self.embedding_provider}")
 
-    @property
-    def embedding_base_url(self) -> str | None:
+    def get_embedding_base_url(self) -> str | None:
         """根据 Embedding 提供商返回对应的 Base URL（智能优先级）"""
         from src.core.config_parser import URLConfigParser
-        
+
         # 构建配置字典
         config_dict = {
             "embedding_base_url": self.embedding_base_url,
@@ -260,7 +259,7 @@ class Settings(BaseSettings):
             "deepseek_base_url": self.deepseek_base_url,
             "siliconflow_base_url": self.siliconflow_base_url,
         }
-        
+
         # 使用配置解析器
         parser = URLConfigParser(config_dict)
         return parser.resolve_embedding_url(self.embedding_provider)
@@ -282,10 +281,10 @@ class Settings(BaseSettings):
     def validate_configuration(self) -> dict[str, bool]:
         """验证配置的有效性（增强版）"""
         results = {}
-        
+
         # 验证所有embedding URL配置
         from src.core.config_parser import URLConfigParser
-        
+
         url_parser = URLConfigParser({
             "embedding_base_url": self.embedding_base_url,
             "openai_embedding_base_url": self.openai_embedding_base_url,
@@ -293,10 +292,10 @@ class Settings(BaseSettings):
             "siliconflow_embedding_base_url": self.siliconflow_embedding_base_url,
             "anthropic_embedding_base_url": self.anthropic_embedding_base_url,
         })
-        
+
         # 验证embedding URL
         try:
-            embedding_url = self.embedding_base_url
+            embedding_url = self.get_embedding_base_url()
             url_validation = url_parser.validate_url(embedding_url)
             results["embedding_url_valid"] = url_validation["valid"]
             if not url_validation["valid"]:
