@@ -23,4 +23,10 @@
 
 ## PR
 - PR #15: https://github.com/alx18779-coder/website-live-chat-agent/pull/15
-- 状态: 等待 AR 审查
+- 状态: 已修复AR审查反馈，等待重新审查
+
+## AR审查修复
+- 修复代码风格问题：运行 ruff check --fix 修复36个错误
+- 添加 .env.example 配置：MILVUS_DATABASE=default
+- 新增测试用例：为 milvus_database 配置项添加2个单元测试
+- 测试结果：60/60 tests passed，代码风格：0 errors
