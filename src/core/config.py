@@ -255,25 +255,25 @@ class Settings(BaseSettings):
     def validate_configuration(self) -> dict[str, bool]:
         """验证配置的有效性"""
         results = {}
-        
+
         # 验证LLM配置
         try:
             from src.services.llm_factory import create_llm
-            llm = create_llm()
+            create_llm()  # 验证LLM配置
             results["llm_valid"] = True
         except Exception as e:
             results["llm_valid"] = False
             results["llm_error"] = str(e)
-        
+
         # 验证Embedding配置
         try:
             from src.services.llm_factory import create_embeddings
-            embeddings = create_embeddings()
+            create_embeddings()  # 验证Embedding配置
             results["embedding_valid"] = True
         except Exception as e:
             results["embedding_valid"] = False
             results["embedding_error"] = str(e)
-        
+
         return results
 
 

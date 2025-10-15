@@ -48,10 +48,10 @@ def create_llm() -> BaseChatModel:
 def _create_plugin_llm(provider: str) -> BaseChatModel:
     """
     使用插件化架构创建 LLM 实例
-    
+
     Args:
         provider: 提供商名称
-        
+
     Returns:
         BaseChatModel 实例
     """
@@ -62,16 +62,16 @@ def _create_plugin_llm(provider: str) -> BaseChatModel:
         "temperature": settings.llm_temperature,
         "max_tokens": settings.llm_max_tokens,
     }
-    
+
     # 添加 Base URL（如果需要）
     base_url = settings.llm_base_url
     if base_url:
         config["base_url"] = base_url
-    
+
     # 创建提供商实例
     provider_name = f"{provider}_llm"
     provider_instance = create_provider(provider_name, config)
-    
+
     # 创建 LLM 实例
     return provider_instance.create_llm()
 
@@ -168,10 +168,10 @@ def create_embeddings() -> Any:
 def _create_plugin_embeddings(provider: str) -> Any:
     """
     使用插件化架构创建 Embeddings 实例
-    
+
     Args:
         provider: 提供商名称
-        
+
     Returns:
         Embeddings 实例
     """
@@ -180,16 +180,16 @@ def _create_plugin_embeddings(provider: str) -> Any:
         "api_key": settings.embedding_api_key,
         "model": settings.embedding_model_name,
     }
-    
+
     # 添加 Base URL（如果需要）
     base_url = settings.embedding_base_url
     if base_url:
         config["base_url"] = base_url
-    
+
     # 创建提供商实例
     provider_name = f"{provider}_embedding"
     provider_instance = create_provider(provider_name, config)
-    
+
     # 创建 Embeddings 实例
     return provider_instance.create_embeddings()
 
