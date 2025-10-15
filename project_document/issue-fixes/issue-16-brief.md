@@ -18,4 +18,5 @@
 - ✅ 服务启动问题已修复
 
 ## PR
-- 创建后于此补充链接
+- PR #17: https://github.com/alx18779-coder/website-live-chat-agent/pull/17
+- 状态: 等待 AR 审查
