@@ -2,7 +2,7 @@
 
 **PR**: #35 - fix: 过滤外部指令模板防止Agent检索失败  
 **状态**: 🔄 待修复  
-**最后更新**: 2025-10-17 17:45:13 +08:00
+**最后更新**: 2025-10-17 17:55:53 +08:00
 
 ---
 
@@ -39,5 +39,21 @@
 1. 在消息写入状态前完成过滤（或在 API 层拒绝），确保异常消息不会加入 `state["messages"]`。
 2. 引入来源校验策略（role/header/whitelist），并在文档中说明。
 3. 同步更新 `.env.example`、README/配置说明，保持环境一致性。
+
+---
+
+### [Round 3] 2025-10-17 17:55:53 +08:00
+
+**审查者**: AI-AR  
+**决策**: ⚠️ Request Changes
+
+**关键发现**：
+- ✅ API 层新增 `_validate_message_source` 与 `_get_filter_reason`，流式路径会早期返回错误。
+- ❌ 阻塞：`chat_completions` 的非流式分支未复用过滤逻辑，`_non_stream_response` 仍可收到未净化的模板消息。
+- ❌ 阻塞：`.env.example` 依旧缺少 `MESSAGE_FILTER_*` 相关配置示例，与配置一致性清单不符。
+
+**整改建议**：
+1. 在进入 `_non_stream_response` 前统一执行来源与内容过滤，保持流式/非流式一致。
+2. 更新 `.env.example`（及相关文档，如 README）补充新的消息过滤配置，确保部署环境可配置。
 
 ---

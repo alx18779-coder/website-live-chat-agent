@@ -243,6 +243,52 @@ async def _non_stream_response(
     requested_model: str,
 ) -> ChatCompletionResponse:
     """非流式响应"""
+    from src.agent.nodes import _get_filter_reason, _is_valid_user_query
+
+    # 在非流式路径中也进行消息验证，过滤外部指令模板
+    if not _validate_message_source(user_message):
+        logger.warning("⚠️ 非流式API层过滤非用户来源消息")
+        return ChatCompletionResponse(
+            id=completion_id,
+            created=created_timestamp,
+            model=requested_model,
+            choices=[
+                ChatCompletionChoice(
+                    index=0,
+                    message=ChatMessage(
+                        role="assistant",
+                        content="抱歉，系统消息无法处理。请发送用户问题。"
+                    ),
+                    finish_reason="content_filter",
+                )
+            ],
+            usage=ChatCompletionUsage(
+                prompt_tokens=0, completion_tokens=0, total_tokens=0
+            ),
+        )
+
+    if not _is_valid_user_query(user_message):
+        filter_reason = _get_filter_reason(user_message)
+        logger.warning(f"⚠️ 非流式API层过滤无效消息 (reason: {filter_reason}, length: {len(user_message)})")
+        return ChatCompletionResponse(
+            id=completion_id,
+            created=created_timestamp,
+            model=requested_model,
+            choices=[
+                ChatCompletionChoice(
+                    index=0,
+                    message=ChatMessage(
+                        role="assistant",
+                        content="抱歉，您的消息包含无效内容，无法处理。请重新发送您的问题。"
+                    ),
+                    finish_reason="content_filter",
+                )
+            ],
+            usage=ChatCompletionUsage(
+                prompt_tokens=0, completion_tokens=0, total_tokens=0
+            ),
+        )
+
     # 调用 Agent
     app = get_agent_app()
 

@@ -29,7 +29,7 @@ class TestAPIMessageFilter:
             # 发送请求
             response = client.post(
                 "/v1/chat/completions",
-                headers={"Authorization": "Bearer test-api-key"},
+                headers={"Authorization": "Bearer test-api-key-12345"},
                 json={
                     "model": "gpt-3.5-turbo",
                     "messages": [{"role": "user", "content": instruction_template}],
@@ -67,7 +67,7 @@ class TestAPIMessageFilter:
             # 发送请求
             response = client.post(
                 "/v1/chat/completions",
-                headers={"Authorization": "Bearer test-api-key"},
+                headers={"Authorization": "Bearer test-api-key-12345"},
                 json={
                     "model": "gpt-3.5-turbo",
                     "messages": [{"role": "user", "content": valid_query}],
@@ -95,7 +95,7 @@ class TestAPIMessageFilter:
             # 发送请求
             response = client.post(
                 "/v1/chat/completions",
-                headers={"Authorization": "Bearer test-api-key"},
+                headers={"Authorization": "Bearer test-api-key-12345"},
                 json={
                     "model": "gpt-3.5-turbo",
                     "messages": [{"role": "user", "content": long_message}],
@@ -123,7 +123,7 @@ class TestAPIMessageFilter:
             # 发送请求
             response = client.post(
                 "/v1/chat/completions",
-                headers={"Authorization": "Bearer test-api-key"},
+                headers={"Authorization": "Bearer test-api-key-12345"},
                 json={
                     "model": "gpt-3.5-turbo",
                     "messages": [{"role": "user", "content": technical_message}],
