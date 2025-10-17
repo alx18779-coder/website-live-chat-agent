@@ -32,18 +32,17 @@ def _is_valid_user_query(query: str) -> bool:
     Returns:
         bool: True表示是有效的用户查询，False表示应该被过滤
     """
+    # 检查是否启用消息过滤
+    if not settings.message_filter_enabled:
+        return True
+
     # 检查长度限制（防止超长指令模板）
-    if len(query) > 1000:
-        logger.warning(f"Query too long: {len(query)} chars")
+    if len(query) > settings.message_max_length:
+        logger.warning(f"Query too long: {len(query)} chars (max: {settings.message_max_length})")
         return False
 
-    # 检查是否为外部指令模板
-    instruction_keywords = [
-        "You are an AI", "Your role is to", "Follow these guidelines",
-        "Use user's language", "Always return", "Always wrap",
-        "You are a helpful assistant", "Your task is to",
-        "Please rephrase", "Convert the following", "Transform this query"
-    ]
+    # 获取配置的指令关键词
+    instruction_keywords = [kw.strip() for kw in settings.instruction_keywords.split(",") if kw.strip()]
 
     # 检查是否包含指令模板关键词
     query_lower = query.lower()
@@ -53,15 +52,16 @@ def _is_valid_user_query(query: str) -> bool:
             return False
 
     # 检查是否以指令开头
-    if query.strip().startswith(("You are", "Your role", "Please", "Convert", "Transform")):
+    instruction_starts = ["You are", "Your role", "Please", "Convert", "Transform"]
+    if query.strip().startswith(tuple(instruction_starts)):
         logger.warning("Query starts with instruction pattern")
         return False
 
     # 检查是否包含过多的技术术语（可能是系统消息）
-    technical_terms = ["API", "endpoint", "function", "method", "parameter", "response", "request"]
+    technical_terms = [term.strip() for term in settings.technical_terms.split(",") if term.strip()]
     technical_count = sum(1 for term in technical_terms if term.lower() in query_lower)
-    if technical_count >= 3:  # 包含3个或以上技术术语
-        logger.warning(f"Too many technical terms detected: {technical_count}")
+    if technical_count >= settings.technical_terms_threshold:
+        logger.warning(f"Too many technical terms detected: {technical_count} (threshold: {settings.technical_terms_threshold})")
         return False
 
     return True
@@ -154,7 +154,21 @@ async def retrieve_node(state: AgentState) -> dict[str, Any]:
     # 验证消息内容，过滤外部指令模板
     if not _is_valid_user_query(query):
         logger.warning(f"⚠️ Retrieve node: invalid query filtered (length: {len(query)})")
-        return {"retrieved_docs": [], "confidence_score": 0.0}
+        # 完全移除异常消息，防止传递给后续节点
+        filtered_messages = state["messages"][:-1]  # 移除最后一条异常消息
+        return {
+            "retrieved_docs": [],
+            "confidence_score": 0.0,
+            "messages": filtered_messages,  # 返回过滤后的消息列表
+            "tool_calls": state.get("tool_calls", []) + [
+                {
+                    "node": "retrieve",
+                    "action": "filter_invalid_message",
+                    "reason": "instruction_template_detected",
+                    "message_length": len(query)
+                }
+            ]
+        }
 
     # 执行检索
     results = await search_knowledge_for_agent(query, top_k=settings.rag_top_k)

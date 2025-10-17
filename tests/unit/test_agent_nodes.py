@@ -254,3 +254,53 @@ async def test_retrieve_node_allows_valid_queries(mock_search):
     assert len(result["retrieved_docs"]) > 0
     assert result["confidence_score"] == 0.9
 
+
+@patch("src.agent.nodes.search_knowledge_for_agent")
+@pytest.mark.asyncio
+async def test_retrieve_node_mixed_scenario(mock_search):
+    """测试混合场景：指令模板+真实问题"""
+    # 模拟包含指令模板和真实问题的混合消息
+    mixed_message = """You are an AI question rephraser. Your role is to rephrase follow-up queries from a conversation into standalone queries that can be used by another LLM to retrieve information through web search.
+
+Please rephrase the following query: 你们的产品有哪些功能？"""
+
+    state: AgentState = {
+        "messages": [HumanMessage(content=mixed_message)],
+        "retrieved_docs": [],
+        "tool_calls": [],
+        "session_id": "test-123",
+    }
+
+    result = await retrieve_node(state)
+
+    # 应该过滤掉整个混合消息，不调用search_knowledge_for_agent
+    assert result["retrieved_docs"] == []
+    assert result["confidence_score"] == 0.0
+    assert "messages" in result  # 应该返回过滤后的消息列表
+    assert len(result["messages"]) == 0  # 异常消息被完全移除
+    mock_search.assert_not_called()
+
+    # 验证tool_calls中记录了过滤事件
+    assert len(result["tool_calls"]) > 0
+    filter_event = result["tool_calls"][-1]
+    assert filter_event["action"] == "filter_invalid_message"
+    assert filter_event["reason"] == "instruction_template_detected"
+
+
+def test_is_valid_user_query_configuration():
+    """测试配置化参数"""
+    # 测试默认配置
+    assert _is_valid_user_query("你们的产品有哪些功能？")
+
+    # 测试长度限制
+    long_query = "这是一个很长的查询" * 200
+    assert not _is_valid_user_query(long_query)
+
+    # 测试指令模板过滤
+    instruction_template = "You are an AI question rephraser"
+    assert not _is_valid_user_query(instruction_template)
+
+    # 测试技术术语过滤
+    technical_query = "API endpoint function method parameter response request"
+    assert not _is_valid_user_query(technical_query)
+
