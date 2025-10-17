@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.agent.nodes import call_llm_node, retrieve_node, router_node
+from src.agent.nodes import _is_valid_user_query, call_llm_node, retrieve_node, router_node
 from src.agent.state import AgentState
 
 
@@ -131,4 +131,126 @@ async def test_router_node_product_query():
 
     # 对于产品查询，可能需要检索
     assert result is not None
+
+
+# Issue #34 相关测试用例
+def test_is_valid_user_query_valid_queries():
+    """测试有效用户查询的验证"""
+    valid_queries = [
+        "你好",
+        "你们的产品有哪些功能？",
+        "退货政策是什么？",
+        "价格怎么样？",
+        "如何联系客服？",
+        "这个产品有什么特点？"
+    ]
+
+    for query in valid_queries:
+        assert _is_valid_user_query(query), f"Valid query should pass: {query}"
+
+
+def test_is_valid_user_query_instruction_templates():
+    """测试指令模板过滤"""
+    instruction_templates = [
+        "You are an AI question rephraser. Your role is to rephrase follow-up queries from a conversation into standalone queries that can be used by another LLM to retrieve information through web search.",
+        "Your role is to help users with their questions",
+        "You are a helpful assistant that can answer questions",
+        "Please rephrase the following query",
+        "Convert the following question into a search query",
+        "Transform this query into a standalone question"
+    ]
+
+    for template in instruction_templates:
+        assert not _is_valid_user_query(template), f"Instruction template should be filtered: {template[:50]}..."
+
+
+def test_is_valid_user_query_technical_terms():
+    """测试技术术语过滤"""
+    technical_queries = [
+        "API endpoint function method parameter response request",
+        "The API function method parameter is used for response request",
+        "This endpoint uses API function method parameter response request"
+    ]
+
+    for query in technical_queries:
+        assert not _is_valid_user_query(query), f"Technical query should be filtered: {query}"
+
+
+def test_is_valid_user_query_length_limit():
+    """测试长度限制"""
+    # 超长查询（超过1000字符）
+    long_query = "这是一个很长的查询" * 200  # 约1800字符
+    assert not _is_valid_user_query(long_query), "Long query should be filtered"
+
+    # 正常长度查询
+    normal_query = "你们的产品有哪些功能？"
+    assert _is_valid_user_query(normal_query), "Normal query should pass"
+
+
+def test_is_valid_user_query_starts_with_instructions():
+    """测试以指令开头的查询过滤"""
+    instruction_start_queries = [
+        "You are a helpful assistant",
+        "Your role is to answer questions",
+        "Please help me with this",
+        "Convert this query",
+        "Transform the following"
+    ]
+
+    for query in instruction_start_queries:
+        assert not _is_valid_user_query(query), f"Instruction start query should be filtered: {query}"
+
+
+@patch("src.agent.nodes.search_knowledge_for_agent")
+@pytest.mark.asyncio
+async def test_retrieve_node_filters_instruction_templates(mock_search):
+    """测试retrieve_node过滤指令模板"""
+    # 模拟指令模板消息
+    instruction_template = "You are an AI question rephraser. Your role is to rephrase follow-up queries from a conversation into standalone queries that can be used by another LLM to retrieve information through web search."
+
+    state: AgentState = {
+        "messages": [HumanMessage(content=instruction_template)],
+        "retrieved_docs": [],
+        "tool_calls": [],
+        "session_id": "test-123",
+    }
+
+    result = await retrieve_node(state)
+
+    # 应该返回空结果，不调用search_knowledge_for_agent
+    assert result["retrieved_docs"] == []
+    assert result["confidence_score"] == 0.0
+    mock_search.assert_not_called()
+
+
+@patch("src.agent.nodes.search_knowledge_for_agent")
+@pytest.mark.asyncio
+async def test_retrieve_node_allows_valid_queries(mock_search):
+    """测试retrieve_node允许有效查询"""
+    # 模拟有效用户查询
+    valid_query = "你们的产品有哪些功能？"
+
+    state: AgentState = {
+        "messages": [HumanMessage(content=valid_query)],
+        "retrieved_docs": [],
+        "tool_calls": [],
+        "session_id": "test-123",
+    }
+
+    # 模拟搜索结果
+    mock_results = [
+        {
+            "text": "我们的产品功能包括智能客服、知识库检索等",
+            "score": 0.9,
+            "metadata": {"source": "product.md", "title": "产品功能"},
+        }
+    ]
+    mock_search.return_value = mock_results
+
+    result = await retrieve_node(state)
+
+    # 应该调用search_knowledge_for_agent并返回结果
+    mock_search.assert_called_once_with(valid_query, top_k=3)
+    assert len(result["retrieved_docs"]) > 0
+    assert result["confidence_score"] == 0.9
 

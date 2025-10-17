@@ -20,6 +20,53 @@ from src.services.llm_factory import create_llm
 logger = logging.getLogger(__name__)
 
 
+def _is_valid_user_query(query: str) -> bool:
+    """
+    验证是否为有效的用户查询
+
+    过滤外部指令模板和异常消息，确保只有真正的用户查询才能进入检索流程。
+
+    Args:
+        query: 待验证的查询文本
+
+    Returns:
+        bool: True表示是有效的用户查询，False表示应该被过滤
+    """
+    # 检查长度限制（防止超长指令模板）
+    if len(query) > 1000:
+        logger.warning(f"Query too long: {len(query)} chars")
+        return False
+
+    # 检查是否为外部指令模板
+    instruction_keywords = [
+        "You are an AI", "Your role is to", "Follow these guidelines",
+        "Use user's language", "Always return", "Always wrap",
+        "You are a helpful assistant", "Your task is to",
+        "Please rephrase", "Convert the following", "Transform this query"
+    ]
+
+    # 检查是否包含指令模板关键词
+    query_lower = query.lower()
+    for keyword in instruction_keywords:
+        if keyword.lower() in query_lower:
+            logger.warning(f"Instruction template detected: {keyword}")
+            return False
+
+    # 检查是否以指令开头
+    if query.strip().startswith(("You are", "Your role", "Please", "Convert", "Transform")):
+        logger.warning("Query starts with instruction pattern")
+        return False
+
+    # 检查是否包含过多的技术术语（可能是系统消息）
+    technical_terms = ["API", "endpoint", "function", "method", "parameter", "response", "request"]
+    technical_count = sum(1 for term in technical_terms if term.lower() in query_lower)
+    if technical_count >= 3:  # 包含3个或以上技术术语
+        logger.warning(f"Too many technical terms detected: {technical_count}")
+        return False
+
+    return True
+
+
 async def router_node(state: AgentState) -> dict[str, Any]:
     """
     路由节点：判断是否需要检索知识库
@@ -102,6 +149,11 @@ async def retrieve_node(state: AgentState) -> dict[str, Any]:
 
     if not query:
         logger.warning("⚠️ Retrieve node: empty query")
+        return {"retrieved_docs": [], "confidence_score": 0.0}
+
+    # 验证消息内容，过滤外部指令模板
+    if not _is_valid_user_query(query):
+        logger.warning(f"⚠️ Retrieve node: invalid query filtered (length: {len(query)})")
         return {"retrieved_docs": [], "confidence_score": 0.0}
 
     # 执行检索
