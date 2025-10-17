@@ -101,3 +101,4 @@ def test_chunk_text_for_embedding_fallback():
         # 应该使用字符分块降级方案
         assert len(chunks) > 1
         assert all(len(chunk) <= 20 for chunk in chunks)  # 10 tokens * 2 chars per token
+

@@ -19,3 +19,4 @@
 - 日志格式从：`%(asctime)s - %(name)s - %(levelname)s - %(message)s`
 - 更新为：`%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s`
 - 现在日志输出包含 `[filename.py:123]` 格式的代码定位信息
+

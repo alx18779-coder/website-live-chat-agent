@@ -27,3 +27,4 @@
 - 文档文本：分块处理，每块不超过512 tokens
 - 分块时添加 metadata 标记（chunk_index, total_chunks）
 - 降级方案：tiktoken失败时使用字符截断
+
