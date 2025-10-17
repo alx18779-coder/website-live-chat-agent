@@ -204,8 +204,13 @@ def test_is_valid_user_query_starts_with_instructions():
 @patch("src.agent.nodes.search_knowledge_for_agent")
 @pytest.mark.asyncio
 async def test_retrieve_node_filters_instruction_templates(mock_search):
-    """测试retrieve_node过滤指令模板"""
-    # 模拟指令模板消息
+    """测试retrieve_node处理指令模板（现在在API层过滤，这里测试正常检索）"""
+    # 模拟检索结果
+    mock_search.return_value = [
+        {"text": "测试文档", "score": 0.8, "metadata": {"title": "测试"}}
+    ]
+
+    # 模拟指令模板消息（现在会通过API层过滤，但这里测试retrieve_node的正常行为）
     instruction_template = "You are an AI question rephraser. Your role is to rephrase follow-up queries from a conversation into standalone queries that can be used by another LLM to retrieve information through web search."
 
     state: AgentState = {
@@ -217,10 +222,10 @@ async def test_retrieve_node_filters_instruction_templates(mock_search):
 
     result = await retrieve_node(state)
 
-    # 应该返回空结果，不调用search_knowledge_for_agent
-    assert result["retrieved_docs"] == []
-    assert result["confidence_score"] == 0.0
-    mock_search.assert_not_called()
+    # 现在retrieve_node会正常执行检索（过滤在API层进行）
+    assert len(result["retrieved_docs"]) > 0
+    assert result["confidence_score"] == 0.8
+    mock_search.assert_called_once()
 
 
 @patch("src.agent.nodes.search_knowledge_for_agent")
@@ -258,8 +263,13 @@ async def test_retrieve_node_allows_valid_queries(mock_search):
 @patch("src.agent.nodes.search_knowledge_for_agent")
 @pytest.mark.asyncio
 async def test_retrieve_node_mixed_scenario(mock_search):
-    """测试混合场景：指令模板+真实问题"""
-    # 模拟包含指令模板和真实问题的混合消息
+    """测试混合场景：指令模板+真实问题（现在在API层过滤，这里测试正常检索）"""
+    # 模拟检索结果
+    mock_search.return_value = [
+        {"text": "测试文档", "score": 0.8, "metadata": {"title": "测试"}}
+    ]
+
+    # 模拟包含指令模板和真实问题的混合消息（现在会通过API层过滤）
     mixed_message = """You are an AI question rephraser. Your role is to rephrase follow-up queries from a conversation into standalone queries that can be used by another LLM to retrieve information through web search.
 
 Please rephrase the following query: 你们的产品有哪些功能？"""
@@ -273,18 +283,10 @@ Please rephrase the following query: 你们的产品有哪些功能？"""
 
     result = await retrieve_node(state)
 
-    # 应该过滤掉整个混合消息，不调用search_knowledge_for_agent
-    assert result["retrieved_docs"] == []
-    assert result["confidence_score"] == 0.0
-    assert "messages" in result  # 应该返回过滤后的消息列表
-    assert len(result["messages"]) == 0  # 异常消息被完全移除
-    mock_search.assert_not_called()
-
-    # 验证tool_calls中记录了过滤事件
-    assert len(result["tool_calls"]) > 0
-    filter_event = result["tool_calls"][-1]
-    assert filter_event["action"] == "filter_invalid_message"
-    assert filter_event["reason"] == "instruction_template_detected"
+    # 现在retrieve_node会正常执行检索（过滤在API层进行）
+    assert len(result["retrieved_docs"]) > 0
+    assert result["confidence_score"] == 0.8
+    mock_search.assert_called_once()
 
 
 def test_is_valid_user_query_configuration():

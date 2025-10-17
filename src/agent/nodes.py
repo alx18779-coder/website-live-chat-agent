@@ -67,6 +67,43 @@ def _is_valid_user_query(query: str) -> bool:
     return True
 
 
+def _get_filter_reason(query: str) -> str:
+    """
+    获取消息过滤的具体原因
+
+    Args:
+        query: 待验证的查询文本
+
+    Returns:
+        str: 过滤原因
+    """
+    # 检查长度限制
+    if len(query) > settings.message_max_length:
+        return "message_too_long"
+
+    # 获取配置的指令关键词
+    instruction_keywords = [kw.strip() for kw in settings.instruction_keywords.split(",") if kw.strip()]
+
+    # 检查是否包含指令模板关键词
+    query_lower = query.lower()
+    for keyword in instruction_keywords:
+        if keyword.lower() in query_lower:
+            return "instruction_template_detected"
+
+    # 检查是否以指令开头
+    instruction_starts = ["You are", "Your role", "Please", "Convert", "Transform"]
+    if query.strip().startswith(tuple(instruction_starts)):
+        return "instruction_pattern_detected"
+
+    # 检查是否包含过多的技术术语
+    technical_terms = [term.strip() for term in settings.technical_terms.split(",") if term.strip()]
+    technical_count = sum(1 for term in technical_terms if term.lower() in query_lower)
+    if technical_count >= settings.technical_terms_threshold:
+        return "too_many_technical_terms"
+
+    return "unknown"
+
+
 async def router_node(state: AgentState) -> dict[str, Any]:
     """
     路由节点：判断是否需要检索知识库
@@ -151,24 +188,7 @@ async def retrieve_node(state: AgentState) -> dict[str, Any]:
         logger.warning("⚠️ Retrieve node: empty query")
         return {"retrieved_docs": [], "confidence_score": 0.0}
 
-    # 验证消息内容，过滤外部指令模板
-    if not _is_valid_user_query(query):
-        logger.warning(f"⚠️ Retrieve node: invalid query filtered (length: {len(query)})")
-        # 完全移除异常消息，防止传递给后续节点
-        filtered_messages = state["messages"][:-1]  # 移除最后一条异常消息
-        return {
-            "retrieved_docs": [],
-            "confidence_score": 0.0,
-            "messages": filtered_messages,  # 返回过滤后的消息列表
-            "tool_calls": state.get("tool_calls", []) + [
-                {
-                    "node": "retrieve",
-                    "action": "filter_invalid_message",
-                    "reason": "instruction_template_detected",
-                    "message_length": len(query)
-                }
-            ]
-        }
+    # 注意：消息验证已在API层进行，这里不再需要过滤
 
     # 执行检索
     results = await search_knowledge_for_agent(query, top_k=settings.rag_top_k)
