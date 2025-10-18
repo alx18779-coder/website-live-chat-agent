@@ -51,14 +51,40 @@ async def prepare_node(state: dict[str, Any]) -> dict[str, Any]:
         if source not in weights:
             weights[source] = 1.0
     
+    # 实验配置处理
+    experiment_id = request.experiment_id
+    experiment_config = {}
+    
+    if settings.recall_experiment_enabled and experiment_id:
+        # 预留实验配置接口
+        # 根据实验ID调整配置（如不同的召回源组合、权重等）
+        logger.info(f"Prepare node: experiment enabled, experiment_id={experiment_id}")
+        
+        # 实验配置示例（预留接口）
+        if experiment_id == "exp-recall-v2":
+            # 实验：启用更多召回源
+            experiment_config = {
+                "sources": ["vector", "faq", "keyword"],
+                "weights": {"vector": 0.6, "faq": 0.3, "keyword": 0.1},
+                "timeout_ms": 800,  # 实验允许更长超时
+            }
+        elif experiment_id == "exp-weight-adjust":
+            # 实验：调整权重
+            experiment_config = {
+                "weights": {"vector": 0.4, "faq": 0.6},
+            }
+    
+    # 合并基础配置和实验配置
     config = {
-        "sources": sources,
-        "weights": weights,
-        "timeout_ms": settings.recall_timeout_ms,
+        "sources": experiment_config.get("sources", sources),
+        "weights": {**weights, **experiment_config.get("weights", {})},
+        "timeout_ms": experiment_config.get("timeout_ms", settings.recall_timeout_ms),
         "retry": settings.recall_retry,
         "merge_strategy": settings.recall_merge_strategy,
         "degrade_threshold": settings.recall_degrade_threshold,
         "fallback_enabled": settings.recall_fallback_enabled,
+        "experiment_id": experiment_id,
+        "experiment_enabled": settings.recall_experiment_enabled,
     }
     
     logger.info(f"Prepare node: loaded config for sources {sources}")
@@ -89,6 +115,9 @@ async def fanout_node(state: dict[str, Any]) -> dict[str, Any]:
         source_instances["vector"] = VectorRecallSource()
     if "faq" in sources:
         source_instances["faq"] = FAQRecallSource()
+    if "keyword" in sources:
+        from src.agent.recall.sources.keyword_source import KeywordRecallSource
+        source_instances["keyword"] = KeywordRecallSource()
     
     # 并行调用召回源
     tasks = []
@@ -239,10 +268,31 @@ async def output_node(state: dict[str, Any]) -> dict[str, Any]:
         experiment_id=request.experiment_id,
     )
     
+    # 记录详细的召回指标
+    sources_used = list(set(hit.source for hit in merged_hits))
+    avg_score = sum(hit.score for hit in merged_hits) / len(merged_hits) if merged_hits else 0.0
+    max_score = merged_hits[0].score if merged_hits else 0.0
+    
     logger.info(
         f"Output node: returning {len(merged_hits)} hits "
-        f"(latency: {latency_ms:.1f}ms, degraded: {degraded})"
+        f"(latency: {latency_ms:.1f}ms, degraded: {degraded}, "
+        f"sources: {sources_used}, avg_score: {avg_score:.3f}, max_score: {max_score:.3f})"
     )
+    
+    # 记录结构化日志（用于监控系统）
+    logger.info("召回完成", extra={
+        "trace_id": request.trace_id,
+        "experiment_id": request.experiment_id,
+        "session_id": request.session_id,
+        "query": request.query[:100],  # 截断长查询
+        "sources": sources_used,
+        "hits_count": len(merged_hits),
+        "latency_ms": latency_ms,
+        "degraded": degraded,
+        "avg_score": avg_score,
+        "max_score": max_score,
+        "top_hit_source": merged_hits[0].source if merged_hits else None,
+    })
     
     return {"result": result}
 
