@@ -245,8 +245,8 @@ class Settings(BaseSettings):
         description="召回源权重配置（逗号分隔，如 vector:1.0,keyword:0.8）"
     )
     recall_timeout_ms: int = Field(
-        default=500,
-        ge=100, le=2000,
+        default=3000,
+        ge=1000, le=10000,
         description="召回超时时间（毫秒）"
     )
     recall_retry: int = Field(

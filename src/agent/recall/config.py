@@ -95,7 +95,7 @@ def validate_recall_config(config: dict[str, Any]) -> dict[str, bool]:
 
     # 验证超时配置
     timeout_ms = config["timeout_ms"]
-    results["timeout_valid"] = 100 <= timeout_ms <= 2000
+    results["timeout_valid"] = 1000 <= timeout_ms <= 10000
 
     # 验证重试配置
     retry = config["retry"]
