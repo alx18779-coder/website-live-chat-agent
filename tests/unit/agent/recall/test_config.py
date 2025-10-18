@@ -188,7 +188,7 @@ class TestValidateRecallConfig:
             "degrade_threshold": 0.5
         }
 
-        results = validate_recall_config(config)
+        validate_recall_config(config)
 
         # 应该为缺失的源设置默认权重
         assert "faq" in config["weights"]
