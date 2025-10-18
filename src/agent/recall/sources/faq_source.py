@@ -97,9 +97,10 @@ class FAQRecallSource(RecallSource):
             # 限制返回数量
             hits = hits[:request.top_k]
             
+            top_score = hits[0].score if hits else 0.0
             logger.info(
                 f"FAQ recall: found {len(hits)} results for '{request.query}' "
-                f"(top score: {hits[0].score:.3f if hits else 0})"
+                f"(top score: {top_score:.3f})"
             )
             
             return hits
