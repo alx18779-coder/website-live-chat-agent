@@ -8,6 +8,8 @@ import logging
 
 from src.agent.recall.schema import RecallHit, RecallRequest
 from src.agent.recall.sources.base import RecallSource
+from src.core.config import settings
+from src.core.utils import truncate_text_to_tokens
 from src.services.llm_factory import create_embeddings
 from src.services.milvus_service import milvus_service
 
@@ -40,8 +42,22 @@ class VectorRecallSource(RecallSource):
             if self._embeddings is None:
                 self._embeddings = create_embeddings()
 
+            # 截断查询文本以避免token限制错误
+            # 使用vector_chunk_size作为最大token数，确保不超过嵌入模型的限制
+            truncated_query = truncate_text_to_tokens(
+                request.query, 
+                max_tokens=settings.vector_chunk_size
+            )
+            
+            # 记录截断情况
+            if len(truncated_query) < len(request.query):
+                logger.warning(
+                    f"Vector recall: query truncated from {len(request.query)} to {len(truncated_query)} chars "
+                    f"to avoid token limit (max_tokens: {settings.vector_chunk_size})"
+                )
+
             # 生成查询向量
-            query_embedding = await self._embeddings.aembed_query(request.query)
+            query_embedding = await self._embeddings.aembed_query(truncated_query)
 
             # 调用Milvus检索
             results = await milvus_service.search_knowledge(
