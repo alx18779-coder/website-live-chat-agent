@@ -5,11 +5,9 @@
 """
 
 import logging
-from typing import Any
 
 from src.agent.recall.schema import RecallHit, RecallRequest
 from src.agent.recall.sources.base import RecallSource
-from src.core.config import settings
 from src.services.llm_factory import create_embeddings
 from src.services.milvus_service import milvus_service
 
@@ -18,15 +16,15 @@ logger = logging.getLogger(__name__)
 
 class VectorRecallSource(RecallSource):
     """向量召回源适配器"""
-    
+
     def __init__(self):
         self._embeddings = None
-    
+
     @property
     def source_name(self) -> str:
         """召回源名称"""
         return "vector"
-    
+
     async def acquire(self, request: RecallRequest) -> list[RecallHit]:
         """
         执行向量召回
@@ -41,25 +39,25 @@ class VectorRecallSource(RecallSource):
             # 获取embeddings实例
             if self._embeddings is None:
                 self._embeddings = create_embeddings()
-            
+
             # 生成查询向量
             query_embedding = await self._embeddings.aembed_query(request.query)
-            
+
             # 调用Milvus检索
             results = await milvus_service.search_knowledge(
                 query_embedding=query_embedding,
                 top_k=request.top_k,
             )
-            
+
             if not results:
                 logger.info(f"Vector recall: no results found for '{request.query}'")
                 return []
-            
+
             # 转换为RecallHit格式
             hits = []
             for i, result in enumerate(results):
                 metadata = result.get("metadata", {})
-                
+
                 hit = RecallHit(
                     source=self.source_name,
                     score=result["score"],
@@ -75,14 +73,14 @@ class VectorRecallSource(RecallSource):
                     }
                 )
                 hits.append(hit)
-            
+
             logger.info(
                 f"Vector recall: found {len(hits)} results for '{request.query}' "
                 f"(top score: {hits[0].score:.3f})"
             )
-            
+
             return hits
-            
+
         except Exception as e:
             logger.error(f"Vector recall failed for '{request.query}': {e}")
             # 返回空结果而不是抛出异常，让上层处理

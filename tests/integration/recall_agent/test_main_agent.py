@@ -2,21 +2,22 @@
 主Agent集成测试
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.agent.nodes import retrieve_node
-from src.agent.recall.schema import RecallRequest, RecallHit, RecallResult
+from src.agent.recall.schema import RecallHit, RecallResult
 
 
 class TestMainAgentIntegration:
     """测试主Agent集成召回Agent"""
-    
+
     @pytest.fixture
     def mock_state(self):
         """创建模拟的Agent状态"""
         from langchain_core.messages import HumanMessage
-        
+
         return {
             "messages": [HumanMessage(content="你们的退货政策是什么？")],
             "session_id": "session-123",
@@ -24,7 +25,7 @@ class TestMainAgentIntegration:
             "context": ["用户询问了产品信息"],
             "experiment_id": "exp-123"
         }
-    
+
     @pytest.mark.asyncio
     @patch('src.agent.nodes.settings')
     @patch('src.agent.nodes.invoke_recall_agent')
@@ -32,7 +33,7 @@ class TestMainAgentIntegration:
         """测试retrieve_node成功集成"""
         # Mock配置
         mock_settings.vector_top_k = 5
-        
+
         # Mock召回Agent返回结果
         mock_recall_result = RecallResult(
             hits=[
@@ -58,33 +59,33 @@ class TestMainAgentIntegration:
             trace_id="trace-456",
             experiment_id="exp-123"
         )
-        
+
         mock_invoke_recall.return_value = mock_recall_result
-        
+
         # 调用retrieve_node
         result = await retrieve_node(mock_state)
-        
+
         # 验证结果
         assert "retrieved_docs" in result
         assert "confidence_score" in result
         assert "recall_metrics" in result
         assert "tool_calls" in result
-        
+
         # 验证文档格式
         assert len(result["retrieved_docs"]) == 2
         assert "[文档1]" in result["retrieved_docs"][0]
         assert "[召回源: vector]" in result["retrieved_docs"][0]
         assert "退货政策" in result["retrieved_docs"][0]
-        
+
         # 验证置信度
         assert result["confidence_score"] == 0.85
-        
+
         # 验证召回指标
         assert result["recall_metrics"]["latency_ms"] == 245.5
         assert result["recall_metrics"]["degraded"] is False
         assert result["recall_metrics"]["sources"] == ["vector", "faq"]
         assert result["recall_metrics"]["trace_id"] == "trace-456"
-        
+
         # 验证工具调用记录
         tool_calls = result["tool_calls"]
         assert len(tool_calls) == 1
@@ -94,7 +95,7 @@ class TestMainAgentIntegration:
         assert tool_calls[0]["recall_sources"] == ["vector", "faq"]
         assert tool_calls[0]["latency_ms"] == 245.5
         assert tool_calls[0]["degraded"] is False
-    
+
     @pytest.mark.asyncio
     @patch('src.agent.nodes.settings')
     @patch('src.agent.nodes.invoke_recall_agent')
@@ -102,7 +103,7 @@ class TestMainAgentIntegration:
         """测试retrieve_node空结果"""
         # Mock配置
         mock_settings.vector_top_k = 5
-        
+
         # Mock召回Agent返回空结果
         mock_recall_result = RecallResult(
             hits=[],
@@ -110,17 +111,17 @@ class TestMainAgentIntegration:
             degraded=True,
             trace_id="trace-456"
         )
-        
+
         mock_invoke_recall.return_value = mock_recall_result
-        
+
         # 调用retrieve_node
         result = await retrieve_node(mock_state)
-        
+
         # 验证结果
         assert result["retrieved_docs"] == []
         assert result["confidence_score"] == 0.0
         assert result["recall_metrics"]["degraded"] is True
-    
+
     @pytest.mark.asyncio
     @patch('src.agent.nodes.settings')
     @patch('src.agent.nodes.invoke_recall_agent')
@@ -128,7 +129,7 @@ class TestMainAgentIntegration:
         """测试retrieve_node降级场景"""
         # Mock配置
         mock_settings.vector_top_k = 5
-        
+
         # Mock召回Agent返回降级结果
         mock_recall_result = RecallResult(
             hits=[
@@ -145,19 +146,19 @@ class TestMainAgentIntegration:
             degraded=True,
             trace_id="trace-456"
         )
-        
+
         mock_invoke_recall.return_value = mock_recall_result
-        
+
         # 调用retrieve_node
         result = await retrieve_node(mock_state)
-        
+
         # 验证结果
         assert len(result["retrieved_docs"]) == 1
         assert "[召回源: fallback]" in result["retrieved_docs"][0]
         assert "抱歉" in result["retrieved_docs"][0]
         assert result["confidence_score"] == 0.1
         assert result["recall_metrics"]["degraded"] is True
-    
+
     @pytest.mark.asyncio
     @patch('src.agent.nodes.settings')
     @patch('src.agent.nodes.invoke_recall_agent')
@@ -165,17 +166,17 @@ class TestMainAgentIntegration:
         """测试retrieve_node错误处理"""
         # Mock配置
         mock_settings.vector_top_k = 5
-        
+
         # Mock召回Agent抛出异常
         mock_invoke_recall.side_effect = Exception("召回Agent错误")
-        
+
         # 调用retrieve_node（应该处理异常）
         result = await retrieve_node(mock_state)
-        
+
         # 验证结果（应该返回空结果）
         assert result["retrieved_docs"] == []
         assert result["confidence_score"] == 0.0
-    
+
     @pytest.mark.asyncio
     @patch('src.agent.nodes.settings')
     @patch('src.agent.nodes.invoke_recall_agent')
@@ -183,7 +184,7 @@ class TestMainAgentIntegration:
         """测试多源召回集成"""
         # Mock配置
         mock_settings.vector_top_k = 5
-        
+
         # Mock召回Agent返回多源结果
         mock_recall_result = RecallResult(
             hits=[
@@ -216,21 +217,21 @@ class TestMainAgentIntegration:
             degraded=False,
             trace_id="trace-456"
         )
-        
+
         mock_invoke_recall.return_value = mock_recall_result
-        
+
         # 调用retrieve_node
         result = await retrieve_node(mock_state)
-        
+
         # 验证结果
         assert len(result["retrieved_docs"]) == 3
         assert "[召回源: vector]" in result["retrieved_docs"][0]
         assert "[召回源: faq]" in result["retrieved_docs"][1]
         assert "[召回源: keyword]" in result["retrieved_docs"][2]
-        
+
         # 验证召回指标
         assert result["recall_metrics"]["sources"] == ["vector", "faq", "keyword"]
-    
+
     @pytest.mark.asyncio
     @patch('src.agent.nodes.settings')
     @patch('src.agent.nodes.invoke_recall_agent')
@@ -238,10 +239,10 @@ class TestMainAgentIntegration:
         """测试实验集成"""
         # Mock配置
         mock_settings.vector_top_k = 5
-        
+
         # 设置实验ID
         mock_state["experiment_id"] = "exp-recall-v2"
-        
+
         # Mock召回Agent返回实验结果
         mock_recall_result = RecallResult(
             hits=[
@@ -259,12 +260,12 @@ class TestMainAgentIntegration:
             trace_id="trace-456",
             experiment_id="exp-recall-v2"
         )
-        
+
         mock_invoke_recall.return_value = mock_recall_result
-        
+
         # 调用retrieve_node
         result = await retrieve_node(mock_state)
-        
+
         # 验证结果
         assert result["recall_metrics"]["trace_id"] == "trace-456"
         # 实验ID应该通过RecallRequest传递到召回Agent

@@ -33,11 +33,11 @@ async def prepare_node(state: dict[str, Any]) -> dict[str, Any]:
         更新的状态
     """
     request: RecallRequest = state["request"]
-    
+
     # 解析召回源配置
     sources = settings.recall_sources
     weights_str = settings.recall_source_weights
-    
+
     # 解析权重配置
     weights = {}
     if weights_str:
@@ -45,21 +45,21 @@ async def prepare_node(state: dict[str, Any]) -> dict[str, Any]:
             if ":" in item:
                 source, weight = item.strip().split(":", 1)
                 weights[source] = float(weight)
-    
+
     # 为未配置的源设置默认权重
     for source in sources:
         if source not in weights:
             weights[source] = 1.0
-    
+
     # 实验配置处理
     experiment_id = request.experiment_id
     experiment_config = {}
-    
+
     if settings.recall_experiment_enabled and experiment_id:
         # 预留实验配置接口
         # 根据实验ID调整配置（如不同的召回源组合、权重等）
         logger.info(f"Prepare node: experiment enabled, experiment_id={experiment_id}")
-        
+
         # 实验配置示例（预留接口）
         if experiment_id == "exp-recall-v2":
             # 实验：启用更多召回源
@@ -73,7 +73,7 @@ async def prepare_node(state: dict[str, Any]) -> dict[str, Any]:
             experiment_config = {
                 "weights": {"vector": 0.4, "faq": 0.6},
             }
-    
+
     # 合并基础配置和实验配置
     config = {
         "sources": experiment_config.get("sources", sources),
@@ -86,9 +86,9 @@ async def prepare_node(state: dict[str, Any]) -> dict[str, Any]:
         "experiment_id": experiment_id,
         "experiment_enabled": settings.recall_experiment_enabled,
     }
-    
+
     logger.info(f"Prepare node: loaded config for sources {sources}")
-    
+
     return {
         "config": config,
         "start_time": time.time(),
@@ -108,7 +108,7 @@ async def fanout_node(state: dict[str, Any]) -> dict[str, Any]:
     request: RecallRequest = state["request"]
     config = state["config"]
     sources = config["sources"]
-    
+
     # 创建召回源实例
     source_instances = {}
     if "vector" in sources:
@@ -118,7 +118,7 @@ async def fanout_node(state: dict[str, Any]) -> dict[str, Any]:
     if "keyword" in sources:
         from src.agent.recall.sources.keyword_source import KeywordRecallSource
         source_instances["keyword"] = KeywordRecallSource()
-    
+
     # 并行调用召回源
     tasks = []
     for source_name in sources:
@@ -127,7 +127,7 @@ async def fanout_node(state: dict[str, Any]) -> dict[str, Any]:
                 _call_recall_source(source_instances[source_name], request, config)
             )
             tasks.append((source_name, task))
-    
+
     # 等待所有召回源完成
     results = {}
     for source_name, task in tasks:
@@ -141,7 +141,7 @@ async def fanout_node(state: dict[str, Any]) -> dict[str, Any]:
         except Exception as e:
             logger.error(f"Fanout node: {source_name} failed: {e}")
             results[source_name] = []
-    
+
     return {"source_results": results}
 
 
@@ -158,7 +158,7 @@ async def merge_node(state: dict[str, Any]) -> dict[str, Any]:
     source_results = state["source_results"]
     config = state["config"]
     weights = config["weights"]
-    
+
     # 收集所有召回结果
     all_hits = []
     for source_name, hits in source_results.items():
@@ -178,20 +178,20 @@ async def merge_node(state: dict[str, Any]) -> dict[str, Any]:
                 }
             )
             all_hits.append(weighted_hit)
-    
+
     # 去重（按内容哈希）
     deduplicated_hits = _deduplicate_hits(all_hits)
-    
+
     # 排序
     sorted_hits = sorted(deduplicated_hits, key=lambda x: x.score, reverse=True)
-    
+
     # 限制返回数量
     top_hits = sorted_hits[:state["request"].top_k]
-    
+
     logger.info(
         f"Merge node: merged {len(all_hits)} hits into {len(top_hits)} final results"
     )
-    
+
     return {"merged_hits": top_hits}
 
 
@@ -207,16 +207,16 @@ async def fallback_node(state: dict[str, Any]) -> dict[str, Any]:
     """
     merged_hits = state.get("merged_hits", [])
     config = state["config"]
-    
+
     # 检查是否需要降级
     needs_fallback = (
         len(merged_hits) == 0 or
         (merged_hits and merged_hits[0].score < config["degrade_threshold"])
     )
-    
+
     if needs_fallback and config["fallback_enabled"]:
         logger.warning("Fallback node: triggering fallback due to poor results")
-        
+
         # 创建兜底响应
         fallback_hit = RecallHit(
             source="fallback",
@@ -229,12 +229,12 @@ async def fallback_node(state: dict[str, Any]) -> dict[str, Any]:
                 "degrade_reason": "low_score" if merged_hits else "no_results"
             }
         )
-        
+
         return {
             "merged_hits": [fallback_hit],
             "degraded": True
         }
-    
+
     return {
         "merged_hits": merged_hits,
         "degraded": False
@@ -255,10 +255,10 @@ async def output_node(state: dict[str, Any]) -> dict[str, Any]:
     merged_hits = state["merged_hits"]
     degraded = state.get("degraded", False)
     start_time = state["start_time"]
-    
+
     # 计算耗时
     latency_ms = (time.time() - start_time) * 1000
-    
+
     # 创建召回结果
     result = RecallResult(
         hits=merged_hits,
@@ -267,18 +267,18 @@ async def output_node(state: dict[str, Any]) -> dict[str, Any]:
         trace_id=request.trace_id,
         experiment_id=request.experiment_id,
     )
-    
+
     # 记录详细的召回指标
     sources_used = list(set(hit.source for hit in merged_hits))
     avg_score = sum(hit.score for hit in merged_hits) / len(merged_hits) if merged_hits else 0.0
     max_score = merged_hits[0].score if merged_hits else 0.0
-    
+
     logger.info(
         f"Output node: returning {len(merged_hits)} hits "
         f"(latency: {latency_ms:.1f}ms, degraded: {degraded}, "
         f"sources: {sources_used}, avg_score: {avg_score:.3f}, max_score: {max_score:.3f})"
     )
-    
+
     # 记录结构化日志（用于监控系统）
     logger.info("召回完成", extra={
         "trace_id": request.trace_id,
@@ -293,7 +293,7 @@ async def output_node(state: dict[str, Any]) -> dict[str, Any]:
         "max_score": max_score,
         "top_hit_source": merged_hits[0].source if merged_hits else None,
     })
-    
+
     return {"result": result}
 
 
@@ -310,7 +310,7 @@ async def _call_recall_source(source, request: RecallRequest, config: dict[str, 
         召回结果
     """
     retry_count = config["retry"]
-    
+
     for attempt in range(retry_count + 1):
         try:
             return await source.acquire(request)
@@ -334,16 +334,16 @@ def _deduplicate_hits(hits: list[RecallHit]) -> list[RecallHit]:
         去重后的结果列表
     """
     seen_content = {}
-    
+
     for hit in hits:
         # 使用内容的前100个字符作为去重键
         content_key = hit.content[:100]
-        
+
         if content_key not in seen_content:
             seen_content[content_key] = hit
         else:
             # 保留分数更高的
             if hit.score > seen_content[content_key].score:
                 seen_content[content_key] = hit
-    
+
     return list(seen_content.values())

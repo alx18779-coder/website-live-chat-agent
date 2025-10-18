@@ -13,7 +13,6 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from src.agent.state import AgentState
-from src.agent.tools import search_knowledge_for_agent
 from src.core.config import settings
 from src.services.llm_factory import create_llm
 
@@ -194,7 +193,7 @@ async def retrieve_node(state: AgentState) -> dict[str, Any]:
     from src.agent.recall.graph import invoke_recall_agent
     from src.agent.recall.schema import RecallRequest
     from src.core.utils import generate_trace_id
-    
+
     # 构建召回请求
     recall_request = RecallRequest(
         query=query,
@@ -205,14 +204,14 @@ async def retrieve_node(state: AgentState) -> dict[str, Any]:
         experiment_id=state.get("experiment_id"),
         top_k=settings.vector_top_k,
     )
-    
+
     # 调用召回Agent
     recall_result = await invoke_recall_agent(recall_request)
-    
+
     if not recall_result.hits:
         logger.info(f"📭 Retrieve node: no results found for '{query}'")
         return {"retrieved_docs": [], "confidence_score": 0.0}
-    
+
     # 格式化召回结果
     formatted_docs = []
     for i, hit in enumerate(recall_result.hits, 1):
@@ -220,25 +219,25 @@ async def retrieve_node(state: AgentState) -> dict[str, Any]:
         title = metadata.get("title", "未命名文档")
         url = metadata.get("url", "")
         source = hit.source
-        
+
         doc_text = f"[文档{i}] {title}"
         if url:
             doc_text += f" (来源: {url})"
         doc_text += f" [召回源: {source}]"
         doc_text += f"\n{hit.content}"
-        
+
         formatted_docs.append(doc_text)
-    
+
     # 计算置信度（使用最高分）
     confidence = recall_result.hits[0].score if recall_result.hits else 0.0
-    
+
     # 记录召回指标
     logger.info(
         f"✅ Retrieve node: found {len(recall_result.hits)} documents, "
         f"confidence={confidence:.2f}, latency={recall_result.latency_ms:.1f}ms, "
         f"degraded={recall_result.degraded}, sources={[hit.source for hit in recall_result.hits]}"
     )
-    
+
     return {
         "retrieved_docs": formatted_docs,
         "confidence_score": confidence,

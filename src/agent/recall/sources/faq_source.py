@@ -5,19 +5,17 @@ FAQ召回源适配器
 """
 
 import logging
-import re
 from typing import Any
 
 from src.agent.recall.schema import RecallHit, RecallRequest
 from src.agent.recall.sources.base import RecallSource
-from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
 class FAQRecallSource(RecallSource):
     """FAQ召回源适配器"""
-    
+
     def __init__(self):
         # FAQ数据存储（实际项目中可能从数据库或文件加载）
         self._faq_data = [
@@ -29,7 +27,7 @@ class FAQRecallSource(RecallSource):
                 "keywords": ["退货", "退款", "退换", "30天", "无理由"]
             },
             {
-                "id": "faq_002", 
+                "id": "faq_002",
                 "question": "如何联系客服？",
                 "answer": "您可以通过在线客服、电话400-123-4567或邮件support@example.com联系我们。",
                 "category": "联系方式",
@@ -50,12 +48,12 @@ class FAQRecallSource(RecallSource):
                 "keywords": ["支付", "支付宝", "微信", "银行卡", "货到付款"]
             }
         ]
-    
+
     @property
     def source_name(self) -> str:
         """召回源名称"""
         return "faq"
-    
+
     async def acquire(self, request: RecallRequest) -> list[RecallHit]:
         """
         执行FAQ召回
@@ -69,11 +67,11 @@ class FAQRecallSource(RecallSource):
         try:
             query = request.query.lower()
             hits = []
-            
+
             # 关键词匹配策略
             for faq in self._faq_data:
                 score = self._calculate_faq_score(query, faq)
-                
+
                 if score > 0.3:  # 设置最低匹配阈值
                     hit = RecallHit(
                         source=self.source_name,
@@ -90,25 +88,25 @@ class FAQRecallSource(RecallSource):
                         }
                     )
                     hits.append(hit)
-            
+
             # 按分数排序
             hits.sort(key=lambda x: x.score, reverse=True)
-            
+
             # 限制返回数量
             hits = hits[:request.top_k]
-            
+
             top_score = hits[0].score if hits else 0.0
             logger.info(
                 f"FAQ recall: found {len(hits)} results for '{request.query}' "
                 f"(top score: {top_score:.3f})"
             )
-            
+
             return hits
-            
+
         except Exception as e:
             logger.error(f"FAQ recall failed for '{request.query}': {e}")
             return []
-    
+
     def _calculate_faq_score(self, query: str, faq: dict[str, Any]) -> float:
         """
         计算FAQ匹配分数
@@ -121,25 +119,25 @@ class FAQRecallSource(RecallSource):
             匹配分数 (0-1)
         """
         score = 0.0
-        
+
         # 1. 问题匹配（权重最高）
         question = faq["question"].lower()
         if any(word in question for word in query.split()):
             score += 0.4
-        
+
         # 2. 关键词匹配
         keywords = faq["keywords"]
         matched_keywords = sum(1 for keyword in keywords if keyword in query)
         if matched_keywords > 0:
             score += (matched_keywords / len(keywords)) * 0.4
-        
+
         # 3. 答案内容匹配
         answer = faq["answer"].lower()
         if any(word in answer for word in query.split()):
             score += 0.2
-        
+
         # 4. 完全匹配奖励
         if query in question or any(keyword in query for keyword in keywords):
             score += 0.2
-        
+
         return min(score, 1.0)

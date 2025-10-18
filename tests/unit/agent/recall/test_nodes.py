@@ -2,23 +2,24 @@
 召回节点单元测试
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.agent.recall.schema import RecallRequest, RecallHit, RecallResult
+import pytest
+
 from src.agent.recall.nodes import (
-    prepare_node,
+    _deduplicate_hits,
+    fallback_node,
     fanout_node,
     merge_node,
-    fallback_node,
     output_node,
-    _deduplicate_hits
+    prepare_node,
 )
+from src.agent.recall.schema import RecallHit, RecallRequest, RecallResult
 
 
 class TestPrepareNode:
     """测试prepare_node"""
-    
+
     @pytest.fixture
     def mock_settings(self):
         """Mock settings"""
@@ -33,7 +34,7 @@ class TestPrepareNode:
             mock.recall_experiment_enabled = False
             mock.recall_experiment_platform = None
             yield mock
-    
+
     @pytest.mark.asyncio
     async def test_prepare_node_basic(self, mock_settings):
         """测试基础配置加载"""
@@ -42,46 +43,46 @@ class TestPrepareNode:
             session_id="session-123",
             trace_id="trace-456"
         )
-        
+
         state = {"request": request}
-        
+
         result = await prepare_node(state)
-        
+
         assert "config" in result
         assert "start_time" in result
         assert result["config"]["sources"] == ["vector", "faq"]
         assert result["config"]["weights"]["vector"] == 1.0
         assert result["config"]["weights"]["faq"] == 0.8
-    
+
     @pytest.mark.asyncio
     async def test_prepare_node_with_experiment(self, mock_settings):
         """测试实验配置"""
         mock_settings.recall_experiment_enabled = True
-        
+
         request = RecallRequest(
             query="测试查询",
             session_id="session-123",
             trace_id="trace-456",
             experiment_id="exp-recall-v2"
         )
-        
+
         state = {"request": request}
-        
+
         result = await prepare_node(state)
-        
+
         assert result["config"]["experiment_id"] == "exp-recall-v2"
         assert result["config"]["experiment_enabled"] is True
 
 
 class TestFanoutNode:
     """测试fanout_node"""
-    
+
     @pytest.fixture
     def mock_sources(self):
         """Mock召回源"""
         with patch('src.agent.recall.nodes.VectorRecallSource') as mock_vector, \
              patch('src.agent.recall.nodes.FAQRecallSource') as mock_faq:
-            
+
             # Mock向量召回源
             mock_vector_instance = MagicMock()
             mock_vector_instance.acquire = AsyncMock(return_value=[
@@ -95,7 +96,7 @@ class TestFanoutNode:
                 )
             ])
             mock_vector.return_value = mock_vector_instance
-            
+
             # Mock FAQ召回源
             mock_faq_instance = MagicMock()
             mock_faq_instance.acquire = AsyncMock(return_value=[
@@ -109,9 +110,9 @@ class TestFanoutNode:
                 )
             ])
             mock_faq.return_value = mock_faq_instance
-            
+
             yield mock_vector_instance, mock_faq_instance
-    
+
     @pytest.mark.asyncio
     async def test_fanout_node_success(self, mock_sources):
         """测试成功并行调用"""
@@ -120,7 +121,7 @@ class TestFanoutNode:
             session_id="session-123",
             trace_id="trace-456"
         )
-        
+
         state = {
             "request": request,
             "config": {
@@ -129,27 +130,27 @@ class TestFanoutNode:
                 "retry": 1
             }
         }
-        
+
         result = await fanout_node(state)
-        
+
         assert "source_results" in result
         assert "vector" in result["source_results"]
         assert "faq" in result["source_results"]
         assert len(result["source_results"]["vector"]) == 1
         assert len(result["source_results"]["faq"]) == 1
-    
+
     @pytest.mark.asyncio
     async def test_fanout_node_timeout(self, mock_sources):
         """测试超时处理"""
         # Mock超时异常
         mock_sources[0].acquire = AsyncMock(side_effect=TimeoutError("Timeout"))
-        
+
         request = RecallRequest(
             query="测试查询",
             session_id="session-123",
             trace_id="trace-456"
         )
-        
+
         state = {
             "request": request,
             "config": {
@@ -157,9 +158,9 @@ class TestFanoutNode:
                 "timeout_ms": 100  # 短超时
             }
         }
-        
+
         result = await fanout_node(state)
-        
+
         assert "source_results" in result
         assert "vector" in result["source_results"]
         assert len(result["source_results"]["vector"]) == 0
@@ -167,7 +168,7 @@ class TestFanoutNode:
 
 class TestMergeNode:
     """测试merge_node"""
-    
+
     @pytest.mark.asyncio
     async def test_merge_node_basic(self):
         """测试基础合并"""
@@ -193,7 +194,7 @@ class TestMergeNode:
                 )
             ]
         }
-        
+
         state = {
             "source_results": source_results,
             "config": {
@@ -206,14 +207,14 @@ class TestMergeNode:
                 top_k=5
             )
         }
-        
+
         result = await merge_node(state)
-        
+
         assert "merged_hits" in result
         assert len(result["merged_hits"]) == 2
         # 应该按分数排序
         assert result["merged_hits"][0].score >= result["merged_hits"][1].score
-    
+
     @pytest.mark.asyncio
     async def test_merge_node_with_weights(self):
         """测试权重合并"""
@@ -239,7 +240,7 @@ class TestMergeNode:
                 )
             ]
         }
-        
+
         state = {
             "source_results": source_results,
             "config": {
@@ -252,9 +253,9 @@ class TestMergeNode:
                 top_k=5
             )
         }
-        
+
         result = await merge_node(state)
-        
+
         assert "merged_hits" in result
         assert len(result["merged_hits"]) == 2
         # vector应该排在前面（权重更高）
@@ -266,7 +267,7 @@ class TestMergeNode:
 
 class TestFallbackNode:
     """测试fallback_node"""
-    
+
     @pytest.mark.asyncio
     async def test_fallback_node_no_fallback(self):
         """测试不需要降级"""
@@ -280,7 +281,7 @@ class TestFallbackNode:
                 metadata={}
             )
         ]
-        
+
         state = {
             "merged_hits": merged_hits,
             "config": {
@@ -288,12 +289,12 @@ class TestFallbackNode:
                 "fallback_enabled": True
             }
         }
-        
+
         result = await fallback_node(state)
-        
+
         assert result["degraded"] is False
         assert result["merged_hits"] == merged_hits
-    
+
     @pytest.mark.asyncio
     async def test_fallback_node_low_score(self):
         """测试低分降级"""
@@ -307,7 +308,7 @@ class TestFallbackNode:
                 metadata={}
             )
         ]
-        
+
         state = {
             "merged_hits": merged_hits,
             "config": {
@@ -315,13 +316,13 @@ class TestFallbackNode:
                 "fallback_enabled": True
             }
         }
-        
+
         result = await fallback_node(state)
-        
+
         assert result["degraded"] is True
         assert len(result["merged_hits"]) == 1
         assert result["merged_hits"][0].source == "fallback"
-    
+
     @pytest.mark.asyncio
     async def test_fallback_node_empty_results(self):
         """测试空结果降级"""
@@ -332,13 +333,13 @@ class TestFallbackNode:
                 "fallback_enabled": True
             }
         }
-        
+
         result = await fallback_node(state)
-        
+
         assert result["degraded"] is True
         assert len(result["merged_hits"]) == 1
         assert result["merged_hits"][0].source == "fallback"
-    
+
     @pytest.mark.asyncio
     async def test_fallback_node_disabled(self):
         """测试降级功能关闭"""
@@ -349,16 +350,16 @@ class TestFallbackNode:
                 "fallback_enabled": False  # 关闭降级
             }
         }
-        
+
         result = await fallback_node(state)
-        
+
         assert result["degraded"] is False
         assert result["merged_hits"] == []
 
 
 class TestOutputNode:
     """测试output_node"""
-    
+
     @pytest.mark.asyncio
     async def test_output_node_basic(self):
         """测试基础输出"""
@@ -372,7 +373,7 @@ class TestOutputNode:
                 metadata={}
             )
         ]
-        
+
         state = {
             "request": RecallRequest(
                 query="测试查询",
@@ -383,10 +384,10 @@ class TestOutputNode:
             "degraded": False,
             "start_time": 1000.0
         }
-        
+
         with patch('time.time', return_value=1000.5):  # 模拟500ms延迟
             result = await output_node(state)
-        
+
         assert "result" in result
         assert isinstance(result["result"], RecallResult)
         assert result["result"].hits == merged_hits
@@ -396,7 +397,7 @@ class TestOutputNode:
 
 class TestDeduplicateHits:
     """测试去重函数"""
-    
+
     def test_deduplicate_hits_no_duplicates(self):
         """测试无重复的去重"""
         hits = [
@@ -417,12 +418,12 @@ class TestDeduplicateHits:
                 metadata={}
             )
         ]
-        
+
         result = _deduplicate_hits(hits)
-        
+
         assert len(result) == 2
         assert result == hits
-    
+
     def test_deduplicate_hits_with_duplicates(self):
         """测试有重复的去重"""
         hits = [
@@ -443,15 +444,15 @@ class TestDeduplicateHits:
                 metadata={}
             )
         ]
-        
+
         result = _deduplicate_hits(hits)
-        
+
         assert len(result) == 1
         assert result[0].source == "vector"  # 保留高分
         assert result[0].score == 0.85
-    
+
     def test_deduplicate_hits_empty(self):
         """测试空列表去重"""
         result = _deduplicate_hits([])
-        
+
         assert len(result) == 0

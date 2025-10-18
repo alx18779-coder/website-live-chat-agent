@@ -35,7 +35,7 @@ def test_settings_default_values():
     # 测试新的 vector_* 配置项
     assert settings.vector_top_k == 3
     assert settings.vector_score_threshold == 0.7
-    
+
     # 测试向后兼容别名
     assert settings.rag_top_k == settings.vector_top_k
     assert settings.rag_score_threshold == settings.vector_score_threshold

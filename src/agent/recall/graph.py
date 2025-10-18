@@ -35,31 +35,31 @@ def create_recall_graph() -> StateGraph:
     """
     # 定义状态类型
     RecallState = dict[str, Any]
-    
+
     # 创建状态图
     workflow = StateGraph(RecallState)
-    
+
     # 添加节点
     workflow.add_node("prepare", prepare_node)
     workflow.add_node("fanout", fanout_node)
     workflow.add_node("merge", merge_node)
     workflow.add_node("fallback", fallback_node)
     workflow.add_node("output", output_node)
-    
+
     # 设置入口点
     workflow.set_entry_point("prepare")
-    
+
     # 添加边
     workflow.add_edge("prepare", "fanout")
     workflow.add_edge("fanout", "merge")
     workflow.add_edge("merge", "fallback")
     workflow.add_edge("fallback", "output")
-    
+
     # 编译图
     recall_agent = workflow.compile()
-    
+
     logger.info("Recall agent graph created successfully")
-    
+
     return recall_agent
 
 
@@ -82,16 +82,16 @@ async def invoke_recall_agent(request: RecallRequest) -> RecallResult:
         initial_state = {
             "request": request,
         }
-        
+
         # 调用召回Agent
         result = await recall_agent.ainvoke(initial_state)
-        
+
         # 返回召回结果
         return result["result"]
-        
+
     except Exception as e:
         logger.error(f"Recall agent invocation failed: {e}")
-        
+
         # 返回错误结果
         return RecallResult(
             hits=[],

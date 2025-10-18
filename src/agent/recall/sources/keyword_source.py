@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class KeywordRecallSource(RecallSource):
     """关键词召回源适配器"""
-    
+
     def __init__(self):
         # 关键词规则库（实际项目中可能从数据库或配置文件加载）
         self._keyword_rules = [
@@ -29,7 +29,7 @@ class KeywordRecallSource(RecallSource):
                 "patterns": [r"价格|多少钱|费用|收费|成本"]
             },
             {
-                "id": "rule_002", 
+                "id": "rule_002",
                 "keywords": ["技术支持", "帮助", "问题", "故障", "bug"],
                 "content": "技术支持服务：\n- 工作时间：周一至周五 9:00-18:00\n- 联系方式：support@example.com\n- 在线客服：7x24小时\n- 响应时间：2小时内",
                 "category": "技术支持",
@@ -53,7 +53,7 @@ class KeywordRecallSource(RecallSource):
                 "patterns": [r"API|接口|开发|文档|SDK"]
             }
         ]
-        
+
         # 同义词映射
         self._synonyms = {
             "价格": ["费用", "收费", "成本", "价钱"],
@@ -62,12 +62,12 @@ class KeywordRecallSource(RecallSource):
             "登录": ["登入", "进入", "访问"],
             "API": ["接口", "服务", "端点"]
         }
-    
+
     @property
     def source_name(self) -> str:
         """召回源名称"""
         return "keyword"
-    
+
     async def acquire(self, request: RecallRequest) -> list[RecallHit]:
         """
         执行关键词召回
@@ -81,11 +81,11 @@ class KeywordRecallSource(RecallSource):
         try:
             query = request.query.lower()
             hits = []
-            
+
             # 关键词匹配策略
             for rule in self._keyword_rules:
                 score = self._calculate_keyword_score(query, rule)
-                
+
                 if score > 0.3:  # 设置最低匹配阈值
                     hit = RecallHit(
                         source=self.source_name,
@@ -102,25 +102,25 @@ class KeywordRecallSource(RecallSource):
                         }
                     )
                     hits.append(hit)
-            
+
             # 按分数排序
             hits.sort(key=lambda x: x.score, reverse=True)
-            
+
             # 限制返回数量
             hits = hits[:request.top_k]
-            
+
             top_score = hits[0].score if hits else 0.0
             logger.info(
                 f"Keyword recall: found {len(hits)} results for '{request.query}' "
                 f"(top score: {top_score:.3f})"
             )
-            
+
             return hits
-            
+
         except Exception as e:
             logger.error(f"Keyword recall failed for '{request.query}': {e}")
             return []
-    
+
     def _calculate_keyword_score(self, query: str, rule: dict[str, Any]) -> float:
         """
         计算关键词匹配分数
@@ -133,20 +133,20 @@ class KeywordRecallSource(RecallSource):
             匹配分数 (0-1)
         """
         score = 0.0
-        
+
         # 1. 直接关键词匹配
         keywords = rule["keywords"]
         matched_keywords = sum(1 for keyword in keywords if keyword in query)
         if matched_keywords > 0:
             score += (matched_keywords / len(keywords)) * 0.4
-        
+
         # 2. 正则表达式匹配
         patterns = rule.get("patterns", [])
         for pattern in patterns:
             if re.search(pattern, query, re.IGNORECASE):
                 score += 0.3
                 break
-        
+
         # 3. 同义词匹配
         synonym_matches = 0
         for keyword in keywords:
@@ -154,16 +154,16 @@ class KeywordRecallSource(RecallSource):
                 synonyms = self._synonyms[keyword]
                 if any(syn in query for syn in synonyms):
                     synonym_matches += 1
-        
+
         if synonym_matches > 0:
             score += (synonym_matches / len(keywords)) * 0.2
-        
+
         # 4. 规则优先级加权
         priority = rule.get("priority", 0.5)
         score *= priority
-        
+
         # 5. 完全匹配奖励
         if any(keyword in query for keyword in keywords):
             score += 0.1
-        
+
         return min(score, 1.0)

@@ -5,14 +5,13 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 from src.agent.recall.schema import RecallHit, RecallRequest
 
 
 class RecallSource(ABC):
     """召回源基类接口"""
-    
+
     @abstractmethod
     async def acquire(self, request: RecallRequest) -> list[RecallHit]:
         """
@@ -25,7 +24,7 @@ class RecallSource(ABC):
             召回命中结果列表
         """
         pass
-    
+
     @property
     @abstractmethod
     def source_name(self) -> str:
