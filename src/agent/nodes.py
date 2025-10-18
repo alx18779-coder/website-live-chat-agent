@@ -191,7 +191,7 @@ async def retrieve_node(state: AgentState) -> dict[str, Any]:
     # 注意：消息验证已在API层进行，这里不再需要过滤
 
     # 执行检索
-    results = await search_knowledge_for_agent(query, top_k=settings.rag_top_k)
+    results = await search_knowledge_for_agent(query, top_k=settings.vector_top_k)
 
     if not results:
         logger.info(f"📭 Retrieve node: no results found for '{query}'")
