@@ -141,7 +141,7 @@ class TestValidateRecallConfig:
         config = {
             "sources": ["vector"],
             "weights": {"vector": 1.0},
-            "timeout_ms": 500,  # 低于最小值
+            "timeout_ms": 50,  # 低于最小值
             "retry": 1,
             "degrade_threshold": 0.5
         }

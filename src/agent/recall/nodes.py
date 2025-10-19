@@ -67,7 +67,7 @@ async def prepare_node(state: RecallState) -> dict[str, Any]:
             experiment_config = {
                 "sources": ["vector", "faq", "keyword"],
                 "weights": {"vector": 0.6, "faq": 0.3, "keyword": 0.1},
-                "timeout_ms": 800,  # 实验允许更长超时
+                "timeout_ms": 5000,  # 实验允许更长超时
             }
         elif experiment_id == "exp-weight-adjust":
             # 实验：调整权重

@@ -246,7 +246,7 @@ class Settings(BaseSettings):
     )
     recall_timeout_ms: int = Field(
         default=3000,
-        ge=1000, le=10000,
+        ge=100, le=10000,
         description="召回超时时间（毫秒）"
     )
     recall_retry: int = Field(
