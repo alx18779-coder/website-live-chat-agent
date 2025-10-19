@@ -218,7 +218,18 @@ async def retrieve_node(state: AgentState) -> dict[str, Any]:
                 "degraded": True,
                 "sources": [],
                 "trace_id": recall_request.trace_id,
-            }
+            },
+            "tool_calls": state.get("tool_calls", []) + [
+                {
+                    "node": "retrieve",
+                    "results_count": 0,
+                    "top_score": 0.0,
+                    "recall_sources": [],
+                    "latency_ms": 0.0,
+                    "degraded": True,
+                    "error": str(e)
+                }
+            ]
         }
 
     if not recall_result.hits:
@@ -231,7 +242,17 @@ async def retrieve_node(state: AgentState) -> dict[str, Any]:
                 "degraded": recall_result.degraded,
                 "sources": [],
                 "trace_id": recall_result.trace_id,
-            }
+            },
+            "tool_calls": state.get("tool_calls", []) + [
+                {
+                    "node": "retrieve",
+                    "results_count": 0,
+                    "top_score": 0.0,
+                    "recall_sources": [],
+                    "latency_ms": recall_result.latency_ms,
+                    "degraded": recall_result.degraded
+                }
+            ]
         }
 
     # 格式化召回结果
