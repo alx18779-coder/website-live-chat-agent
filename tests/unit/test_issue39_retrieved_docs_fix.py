@@ -16,6 +16,7 @@ class TestIssue39RetrievedDocsFix:
     async def test_call_llm_node_with_string_retrieved_docs(self):
         """测试call_llm_node处理字符串类型的retrieved_docs"""
         from langchain_core.messages import AIMessage, HumanMessage
+
         from src.agent.main.nodes import call_llm_node
 
         # 模拟状态，retrieved_docs是字符串列表
@@ -56,6 +57,7 @@ class TestIssue39RetrievedDocsFix:
     async def test_call_llm_node_with_empty_retrieved_docs(self):
         """测试call_llm_node处理空的retrieved_docs"""
         from langchain_core.messages import AIMessage, HumanMessage
+
         from src.agent.main.nodes import call_llm_node
 
         # 模拟状态，retrieved_docs为空
@@ -91,6 +93,7 @@ class TestIssue39RetrievedDocsFix:
     async def test_call_llm_node_with_mixed_retrieved_docs(self):
         """测试call_llm_node处理混合类型的retrieved_docs"""
         from langchain_core.messages import AIMessage, HumanMessage
+
         from src.agent.main.nodes import call_llm_node
 
         # 模拟状态，retrieved_docs包含字符串和字典（异常情况）
@@ -130,6 +133,7 @@ class TestIssue39RetrievedDocsFix:
     async def test_call_llm_node_error_handling(self):
         """测试call_llm_node的错误处理"""
         from langchain_core.messages import HumanMessage
+
         from src.agent.main.nodes import call_llm_node
 
         # 模拟状态
@@ -158,6 +162,7 @@ class TestIssue39RetrievedDocsFix:
     async def test_retrieve_node_output_format(self):
         """测试retrieve_node的输出格式"""
         from langchain_core.messages import HumanMessage
+
         from src.agent.main.nodes import retrieve_node
 
         # 模拟状态
