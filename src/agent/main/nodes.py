@@ -12,7 +12,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from src.agent.state import AgentState
+from src.agent.main.state import AgentState
 from src.core.config import settings
 from src.services.llm_factory import create_llm
 

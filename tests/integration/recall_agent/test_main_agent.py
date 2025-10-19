@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.agent.nodes import retrieve_node
+from src.agent.main.nodes import retrieve_node
 from src.agent.recall.schema import RecallHit, RecallResult
 
 

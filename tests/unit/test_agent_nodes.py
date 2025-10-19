@@ -9,8 +9,8 @@ from unittest.mock import patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.agent.nodes import _is_valid_user_query, call_llm_node, retrieve_node, router_node
-from src.agent.state import AgentState
+from src.agent.main.nodes import _is_valid_user_query, call_llm_node, retrieve_node, router_node
+from src.agent.main.state import AgentState
 
 
 @pytest.mark.asyncio
@@ -23,7 +23,7 @@ async def test_call_llm_simple(mock_llm):
         "session_id": "test-123",
     }
 
-    with patch("src.agent.nodes.create_llm", return_value=mock_llm):
+    with patch("src.agent.main.nodes.create_llm", return_value=mock_llm):
         result = await call_llm_node(state)
 
         assert "messages" in result
@@ -51,7 +51,7 @@ async def test_call_llm_with_context(mock_llm):
         "session_id": "test-123",
     }
 
-    with patch("src.agent.nodes.create_llm", return_value=mock_llm):
+    with patch("src.agent.main.nodes.create_llm", return_value=mock_llm):
         result = await call_llm_node(state)
 
         assert "messages" in result

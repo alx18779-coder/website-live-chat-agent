@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.agent.tools import search_knowledge_for_agent
+from src.agent.main.tools import search_knowledge_for_agent
 from src.api.v1.knowledge import search_knowledge
 
 

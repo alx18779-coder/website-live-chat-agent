@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.agent.graph import get_agent_app
+from src.agent.main.graph import get_agent_app
 from src.core.config import settings
 from src.core.security import verify_api_key
 from src.models.openai_schema import (
