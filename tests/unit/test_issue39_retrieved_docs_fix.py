@@ -32,7 +32,7 @@ class TestIssue39RetrievedDocsFix:
         # 模拟LLM响应
         mock_response = AIMessage(content="根据我们的产品信息，iPhone 15的价格是...")
 
-        with patch("src.agent.nodes.create_llm") as mock_create_llm:
+        with patch("src.agent.main.nodes.create_llm") as mock_create_llm:
             mock_llm = AsyncMock()
             mock_llm.ainvoke.return_value = mock_response
             mock_create_llm.return_value = mock_llm
@@ -68,7 +68,7 @@ class TestIssue39RetrievedDocsFix:
         # 模拟LLM响应
         mock_response = AIMessage(content="你好！我是客服助手，有什么可以帮助您的吗？")
 
-        with patch("src.agent.nodes.create_llm") as mock_create_llm:
+        with patch("src.agent.main.nodes.create_llm") as mock_create_llm:
             mock_llm = AsyncMock()
             mock_llm.ainvoke.return_value = mock_response
             mock_create_llm.return_value = mock_llm
@@ -107,7 +107,7 @@ class TestIssue39RetrievedDocsFix:
         # 模拟LLM响应
         mock_response = AIMessage(content="基于检索的响应")
 
-        with patch("src.agent.nodes.create_llm") as mock_create_llm:
+        with patch("src.agent.main.nodes.create_llm") as mock_create_llm:
             mock_llm = AsyncMock()
             mock_llm.ainvoke.return_value = mock_response
             mock_create_llm.return_value = mock_llm
@@ -140,7 +140,7 @@ class TestIssue39RetrievedDocsFix:
         }
 
         # 模拟LLM调用失败
-        with patch("src.agent.nodes.create_llm") as mock_create_llm:
+        with patch("src.agent.main.nodes.create_llm") as mock_create_llm:
             mock_llm = AsyncMock()
             mock_llm.ainvoke.side_effect = Exception("LLM调用失败")
             mock_create_llm.return_value = mock_llm
@@ -275,7 +275,7 @@ class TestIssue39RetrievedDocsFix:
             # 第二步：调用LLM
             updated_state = {**state, **retrieve_result}
 
-            with patch("src.agent.nodes.create_llm") as mock_create_llm:
+            with patch("src.agent.main.nodes.create_llm") as mock_create_llm:
                 from langchain_core.messages import AIMessage
                 mock_llm = AsyncMock()
                 mock_llm.ainvoke.return_value = AIMessage(content="根据我们的产品信息，iPhone 15的价格是...")
