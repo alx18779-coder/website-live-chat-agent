@@ -39,34 +39,44 @@ async def test_agent_graph_simple_chat(mock_llm, mock_milvus_service):
 @pytest.mark.asyncio
 async def test_agent_graph_with_rag(mock_llm, mock_milvus_service, mock_embeddings):
     """测试带 RAG 检索的流程"""
-    # Mock Milvus 返回相关文档
-    mock_milvus_service.search_knowledge.return_value = [
-        {
-            "text": "我们的退货政策是30天内无条件退货",
-            "score": 0.95,
-            "metadata": {"source": "policy.md"},
-        }
-    ]
+    from src.agent.recall.schema import RecallResult, RecallHit
+    
+    # Mock召回Agent返回结果
+    mock_recall_result = RecallResult(
+        hits=[
+            RecallHit(
+                source="vector",
+                score=0.95,
+                confidence=0.9,
+                reason="向量检索匹配",
+                content="我们的退货政策是30天内无条件退货",
+                metadata={"source": "policy.md"}
+            )
+        ],
+        latency_ms=100.0,
+        degraded=False,
+        trace_id="test-trace"
+    )
 
     with patch("src.services.llm_factory.create_llm", return_value=mock_llm):
-        with patch("src.agent.main.tools.milvus_service", mock_milvus_service):
-            with patch("src.services.llm_factory.create_embeddings", return_value=mock_embeddings):
-                app = get_agent_app()
+        with patch("src.agent.recall.graph.invoke_recall_agent", return_value=mock_recall_result):
+            app = get_agent_app()
 
-                initial_state: AgentState = {
-                    "messages": [HumanMessage(content="退货政策是什么？")],
-                    "retrieved_docs": [],
-                    "tool_calls": [],
-                    "session_id": "test-session-456",
-                }
+            initial_state: AgentState = {
+                "messages": [HumanMessage(content="退货政策是什么？")],
+                "retrieved_docs": [],
+                "tool_calls": [],
+                "session_id": "test-session-456",
+            }
 
-                config = {"configurable": {"thread_id": "test-thread-2"}}
+            config = {"configurable": {"thread_id": "test-thread-2"}}
 
-                result = await app.ainvoke(initial_state, config=config)
+            result = await app.ainvoke(initial_state, config=config)
 
-                assert "messages" in result
-                # 应该调用过 Milvus 检索
-                mock_milvus_service.search_knowledge.assert_called()
+            assert "messages" in result
+            # 应该包含检索到的文档
+            assert "retrieved_docs" in result
+            assert len(result["retrieved_docs"]) > 0
 
 
 @pytest.mark.asyncio
@@ -118,9 +128,15 @@ async def test_agent_graph_error_handling(mock_llm):
 
         config = {"configurable": {"thread_id": "test-thread-error"}}
 
-        # Agent 应该能处理异常
-        with pytest.raises(Exception):
-            await app.ainvoke(initial_state, config=config)
+        # Agent 应该能处理异常并返回错误消息
+        result = await app.ainvoke(initial_state, config=config)
+        
+        assert "messages" in result
+        # 应该包含错误消息
+        assert len(result["messages"]) > 1
+        # 最后一条消息应该包含错误信息
+        last_message = result["messages"][-1]
+        assert "error" in last_message.content.lower() or "抱歉" in last_message.content
 
 
 @pytest.mark.asyncio
