@@ -206,11 +206,33 @@ async def retrieve_node(state: AgentState) -> dict[str, Any]:
     )
 
     # 调用召回Agent
-    recall_result = await invoke_recall_agent(recall_request)
+    try:
+        recall_result = await invoke_recall_agent(recall_request)
+    except Exception as e:
+        logger.error(f"❌ Recall agent failed: {e}")
+        return {
+            "retrieved_docs": [], 
+            "confidence_score": 0.0,
+            "recall_metrics": {
+                "latency_ms": 0.0,
+                "degraded": True,
+                "sources": [],
+                "trace_id": recall_request.trace_id,
+            }
+        }
 
     if not recall_result.hits:
         logger.info(f"📭 Retrieve node: no results found for '{query}'")
-        return {"retrieved_docs": [], "confidence_score": 0.0}
+        return {
+            "retrieved_docs": [], 
+            "confidence_score": 0.0,
+            "recall_metrics": {
+                "latency_ms": recall_result.latency_ms,
+                "degraded": recall_result.degraded,
+                "sources": [],
+                "trace_id": recall_result.trace_id,
+            }
+        }
 
     # 格式化召回结果
     formatted_docs = []

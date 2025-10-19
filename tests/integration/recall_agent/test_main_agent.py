@@ -28,7 +28,7 @@ class TestMainAgentIntegration:
 
     @pytest.mark.asyncio
     @patch('src.agent.main.nodes.settings')
-    @patch('src.agent.main.nodes.invoke_recall_agent')
+    @patch('src.agent.recall.graph.invoke_recall_agent')
     async def test_retrieve_node_integration_success(self, mock_invoke_recall, mock_settings, mock_state):
         """测试retrieve_node成功集成"""
         # Mock配置
@@ -98,7 +98,7 @@ class TestMainAgentIntegration:
 
     @pytest.mark.asyncio
     @patch('src.agent.main.nodes.settings')
-    @patch('src.agent.main.nodes.invoke_recall_agent')
+    @patch('src.agent.recall.graph.invoke_recall_agent')
     async def test_retrieve_node_integration_empty_results(self, mock_invoke_recall, mock_settings, mock_state):
         """测试retrieve_node空结果"""
         # Mock配置
@@ -124,7 +124,7 @@ class TestMainAgentIntegration:
 
     @pytest.mark.asyncio
     @patch('src.agent.main.nodes.settings')
-    @patch('src.agent.main.nodes.invoke_recall_agent')
+    @patch('src.agent.recall.graph.invoke_recall_agent')
     async def test_retrieve_node_integration_fallback(self, mock_invoke_recall, mock_settings, mock_state):
         """测试retrieve_node降级场景"""
         # Mock配置
@@ -161,7 +161,7 @@ class TestMainAgentIntegration:
 
     @pytest.mark.asyncio
     @patch('src.agent.main.nodes.settings')
-    @patch('src.agent.main.nodes.invoke_recall_agent')
+    @patch('src.agent.recall.graph.invoke_recall_agent')
     async def test_retrieve_node_integration_error_handling(self, mock_invoke_recall, mock_settings, mock_state):
         """测试retrieve_node错误处理"""
         # Mock配置
@@ -179,7 +179,7 @@ class TestMainAgentIntegration:
 
     @pytest.mark.asyncio
     @patch('src.agent.main.nodes.settings')
-    @patch('src.agent.main.nodes.invoke_recall_agent')
+    @patch('src.agent.recall.graph.invoke_recall_agent')
     async def test_retrieve_node_integration_multi_source(self, mock_invoke_recall, mock_settings, mock_state):
         """测试多源召回集成"""
         # Mock配置
@@ -234,7 +234,7 @@ class TestMainAgentIntegration:
 
     @pytest.mark.asyncio
     @patch('src.agent.main.nodes.settings')
-    @patch('src.agent.main.nodes.invoke_recall_agent')
+    @patch('src.agent.recall.graph.invoke_recall_agent')
     async def test_retrieve_node_integration_experiment(self, mock_invoke_recall, mock_settings, mock_state):
         """测试实验集成"""
         # Mock配置
