@@ -16,6 +16,10 @@ from src.services.providers.siliconflow_provider import (
     SiliconFlowEmbeddingProvider,
     SiliconFlowLLMProvider,
 )
+from src.services.providers.customize_provider import (
+    CustomizeLLMProvider,
+    CustomizeEmbeddingProvider,
+)
 
 
 class TestProviderRegistry:
@@ -44,9 +48,11 @@ class TestProviderRegistry:
         assert "openai_llm" in providers
         assert "deepseek_llm" in providers
         assert "siliconflow_llm" in providers
+        assert "customize_llm" in providers
         assert "openai_embedding" in providers
         assert "deepseek_embedding" in providers
         assert "siliconflow_embedding" in providers
+        assert "customize_embedding" in providers
 
     def test_register_provider(self):
         """测试注册新提供商"""
@@ -180,6 +186,47 @@ class TestSiliconFlowProvider:
         assert "BAAI/bge-small-zh-v1.5" in models
 
 
+class TestCustomizeProvider:
+    """测试自定义提供商"""
+
+    def test_llm_provider_creation(self):
+        """测试自定义 LLM提供商创建"""
+        config = {
+            "api_key": "test-customize-key",
+            "base_url": "https://api.customize.cn/v1",
+            "model": "gpt-4o-mini"
+        }
+        provider = CustomizeLLMProvider(config)
+        assert provider.config == config
+
+    def test_llm_provider_required_fields(self):
+        """测试自定义 LLM提供商必需字段"""
+        # 使用有效配置创建提供商实例
+        config = {"api_key": "test-key", "base_url": "https://api.customize.cn/v1"}
+        provider = CustomizeLLMProvider(config)
+        required_fields = provider.get_required_config_fields()
+        assert "api_key" in required_fields
+        assert "base_url" in required_fields
+
+    def test_llm_provider_models(self):
+        """测试自定义 LLM提供商支持的模型"""
+        config = {"api_key": "test-key", "base_url": "https://api.customize.cn/v1"}
+        provider = CustomizeLLMProvider(config)
+        models = provider.get_models()
+        assert "Qwen/Qwen2.5-7B-Instruct" in models
+        assert "Qwen/Qwen2.5-14B-Instruct" in models
+        assert "Qwen/Qwen2.5-32B-Instruct" in models
+
+    def test_embedding_provider_models(self):
+        """测试自定义 Embedding提供商支持的模型"""
+        config = {"api_key": "test-key"}
+        provider = CustomizeEmbeddingProvider(config)
+        models = provider.get_models()
+        assert "BAAI/bge-large-zh-v1.5" in models
+        assert "BAAI/bge-base-zh-v1.5" in models
+        assert "BAAI/bge-small-zh-v1.5" in models
+
+
 class TestConfigSeparation:
     """测试配置分离功能"""
 
@@ -212,6 +259,21 @@ class TestConfigSeparation:
         assert settings.llm_provider == "siliconflow"
         assert settings.embedding_provider == "siliconflow"
         assert settings.llm_model_name == "Qwen/Qwen2.5-7B-Instruct"
+        assert settings.embedding_model_name == "BAAI/bge-large-zh-v1.5"
+
+    def test_customize_support(self):
+        """测试自定义提供商平台支持"""
+        settings = Settings(
+            llm_provider="customize",
+            customize_api_key="test-customize-key",
+            customize_model="gpt-4o-mini",
+            embedding_provider="customize",
+            customize_embedding_model="BAAI/bge-large-zh-v1.5"
+        )
+
+        assert settings.llm_provider == "customize"
+        assert settings.embedding_provider == "customize"
+        assert settings.llm_model_name == "gpt-4o-mini"
         assert settings.embedding_model_name == "BAAI/bge-large-zh-v1.5"
 
     def test_mixed_model_combination(self):

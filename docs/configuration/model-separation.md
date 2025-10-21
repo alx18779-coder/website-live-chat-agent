@@ -111,6 +111,76 @@ SILICONFLOW_API_KEY=your-sf-key
 SILICONFLOW_EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
 ```
 
+### 2.1 自定义提供商配置（OpenAI兼容中转平台）
+
+系统支持任意OpenAI兼容的中转平台（如oneapi、new-api等），适用于自建API服务或第三方中转服务。
+
+#### 完全使用自定义提供商
+```bash
+# LLM配置
+LLM_PROVIDER=customize
+CUSTOMIZE_API_KEY=sk-your-customize-key
+CUSTOMIZE_BASE_URL=https://api.customize.cn/v1
+CUSTOMIZE_MODEL=gpt-4o-mini  # 支持任意OpenAI兼容模型
+
+# Embedding配置
+EMBEDDING_PROVIDER=customize
+CUSTOMIZE_EMBEDDING_API_KEY=sk-your-embedding-key  # 可选，默认使用CUSTOMIZE_API_KEY
+CUSTOMIZE_EMBEDDING_BASE_URL=https://embedding.customize.cn/v1  # 可选，默认使用CUSTOMIZE_BASE_URL
+CUSTOMIZE_EMBEDDING_MODEL=text-embedding-3-small
+```
+
+#### 混合使用自定义提供商
+```bash
+# 自定义LLM + OpenAI Embedding
+LLM_PROVIDER=customize
+CUSTOMIZE_API_KEY=sk-your-customize-key
+CUSTOMIZE_BASE_URL=https://my-api-relay.com/v1
+CUSTOMIZE_MODEL=gpt-4o-mini
+
+EMBEDDING_PROVIDER=openai
+OPENAI_API_KEY=sk-your-openai-key
+EMBEDDING_MODEL=text-embedding-3-small
+```
+
+#### 使用场景示例
+
+**场景1: 使用oneapi中转平台**
+```bash
+# oneapi平台配置
+LLM_PROVIDER=customize
+CUSTOMIZE_API_KEY=sk-oneapi-xxxxx
+CUSTOMIZE_BASE_URL=https://oneapi.example.com/v1
+CUSTOMIZE_MODEL=gpt-4o-mini
+
+EMBEDDING_PROVIDER=customize
+CUSTOMIZE_EMBEDDING_MODEL=text-embedding-3-small
+```
+
+**场景2: 企业内网部署**
+```bash
+# 企业内网OpenAI兼容服务
+LLM_PROVIDER=customize
+CUSTOMIZE_API_KEY=internal-key
+CUSTOMIZE_BASE_URL=https://llm.internal.company.com/v1
+CUSTOMIZE_MODEL=qwen-72b
+
+EMBEDDING_PROVIDER=customize
+CUSTOMIZE_EMBEDDING_MODEL=bge-large-zh-v1.5
+```
+
+**场景3: 国内用户通过代理访问**
+```bash
+# 通过代理服务访问OpenAI
+LLM_PROVIDER=customize
+CUSTOMIZE_API_KEY=sk-your-openai-key
+CUSTOMIZE_BASE_URL=https://proxy.example.com/v1
+CUSTOMIZE_MODEL=gpt-4o
+
+EMBEDDING_PROVIDER=customize
+CUSTOMIZE_EMBEDDING_MODEL=text-embedding-3-large
+```
+
 ### 3. 独立URL配置
 
 #### 使用独立URL（最高优先级）
@@ -393,6 +463,30 @@ ModelError: Model 'invalid-model' not found
 
 # 解决: 使用支持的模型
 DEEPSEEK_MODEL=deepseek-chat  # 正确
+```
+
+#### 3.1 自定义提供商连接问题
+```bash
+# 错误: 自定义提供商配置错误
+ConfigurationError: CUSTOMIZE_API_KEY is required when LLM_PROVIDER=customize
+
+# 解决: 添加必需的API密钥
+LLM_PROVIDER=customize
+CUSTOMIZE_API_KEY=sk-your-key
+CUSTOMIZE_BASE_URL=https://api.example.com/v1
+```
+
+#### 3.2 自定义提供商URL验证失败
+```bash
+# 错误: 中转平台URL不正确
+ConnectionError: Failed to connect to api.customize.cn
+
+# 解决: 验证URL是否正确，并确保可访问
+# 测试URL连通性
+curl -H "Authorization: Bearer your-key" https://api.customize.cn/v1/models
+
+# 正确配置
+CUSTOMIZE_BASE_URL=https://api.customize.cn/v1  # 必须以 /v1 结尾
 ```
 
 #### 4. URL配置冲突
