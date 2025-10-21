@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     """应用配置（从环境变量自动加载）"""
 
     # ===== LLM 配置 =====
-    llm_provider: Literal["openai", "anthropic", "deepseek", "siliconflow"] = Field(
+    llm_provider: Literal["openai", "anthropic", "deepseek", "siliconflow", "customize"] = Field(
         default="deepseek", description="LLM 提供商"
     )
 
@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     )
     anthropic_llm_base_url: str | None = Field(
         default=None, description="Anthropic LLM Base URL"
+    )
+    customize_llm_base_url: str | None = Field(
+        default=None, description="Customize LLM Base URL"
     )
 
     # DeepSeek 配置
@@ -68,6 +71,18 @@ class Settings(BaseSettings):
         default="BAAI/bge-large-zh-v1.5", description="硅基流动 Embedding 模型名称"
     )
 
+    # ===== 自定义提供商配置 =====
+    customize_api_key: str | None = Field(default=None, description="自定义提供商 API Key")
+    customize_base_url: str = Field(
+        default="https://api.customize.cn/v1", description="自定义提供商 API Base URL"
+    )
+    customize_model: str = Field(
+        default="gpt-4o-mini", description="自定义提供商模型名称"
+    )
+    customize_embedding_model: str = Field(
+        default="BAAI/bge-large-zh-v1.5", description="自定义提供商 Embedding 模型名称"
+    )
+
     # ===== 模型别名配置 =====
     model_alias_enabled: bool = Field(
         default=False,
@@ -87,7 +102,7 @@ class Settings(BaseSettings):
     )
 
     # ===== Embedding 配置 =====
-    embedding_provider: Literal["openai", "deepseek", "local", "siliconflow"] = Field(
+    embedding_provider: Literal["openai", "deepseek", "local", "siliconflow", "customize"] = Field(
         default="deepseek", description="Embedding 提供商"
     )
     embedding_model: str = Field(
@@ -114,6 +129,9 @@ class Settings(BaseSettings):
     anthropic_embedding_api_key: str | None = Field(
         default=None, description="Anthropic Embedding API Key"
     )
+    customize_embedding_api_key: str | None = Field(
+        default=None, description="Customize Embedding API Key"
+    )
 
     # ===== Embedding URL 配置 =====
     # 通用独立URL配置（最高优先级）
@@ -133,6 +151,9 @@ class Settings(BaseSettings):
     )
     anthropic_embedding_base_url: str | None = Field(
         default=None, description="Anthropic Embedding Base URL"
+    )
+    customize_embedding_base_url: str | None = Field(
+        default=None, description="Customize Embedding Base URL"
     )
 
     # ===== Milvus 配置 =====
@@ -312,6 +333,10 @@ class Settings(BaseSettings):
             if not self.siliconflow_api_key:
                 raise ValueError("SILICONFLOW_API_KEY is required when LLM_PROVIDER=siliconflow")
             return self.siliconflow_api_key
+        elif self.llm_provider == "customize":
+            if not self.customize_api_key:
+                raise ValueError("CUSTOMIZE_API_KEY is required when LLM_PROVIDER=customize")
+            return self.customize_api_key
         else:
             raise ValueError(f"Unsupported LLM provider: {self.llm_provider}")
 
@@ -326,6 +351,8 @@ class Settings(BaseSettings):
             return self.anthropic_model
         elif self.llm_provider == "siliconflow":
             return self.siliconflow_llm_model
+        elif self.llm_provider == "customize":
+            return self.customize_model
         else:
             raise ValueError(f"Unsupported LLM provider: {self.llm_provider}")
 
@@ -353,6 +380,10 @@ class Settings(BaseSettings):
             if self.siliconflow_llm_base_url:
                 return self.siliconflow_llm_base_url
             return self.siliconflow_base_url
+        elif self.llm_provider == "customize":
+            if self.customize_llm_base_url:
+                return self.customize_llm_base_url
+            return self.customize_base_url  # Customize 使用默认 URL
         else:
             raise ValueError(f"Unsupported LLM provider: {self.llm_provider}")
 
@@ -392,6 +423,12 @@ class Settings(BaseSettings):
             if not self.anthropic_api_key:
                 raise ValueError("ANTHROPIC_API_KEY is required when EMBEDDING_PROVIDER=anthropic")
             return self.anthropic_api_key
+        elif self.embedding_provider == "customize":
+            if self.customize_embedding_api_key:
+                return self.customize_embedding_api_key
+            if not self.customize_api_key:
+                raise ValueError("CUSTOMIZE_API_KEY is required when EMBEDDING_PROVIDER=customize")
+            return self.customize_api_key
         else:
             raise ValueError(f"Unsupported embedding provider: {self.embedding_provider}")
 
@@ -405,10 +442,12 @@ class Settings(BaseSettings):
             "openai_embedding_base_url": self.openai_embedding_base_url,
             "deepseek_embedding_base_url": self.deepseek_embedding_base_url,
             "siliconflow_embedding_base_url": self.siliconflow_embedding_base_url,
+            "customize_embedding_base_url": self.customize_embedding_base_url,
             "anthropic_embedding_base_url": self.anthropic_embedding_base_url,
             # 传统共享URL配置
             "deepseek_base_url": self.deepseek_base_url,
             "siliconflow_base_url": self.siliconflow_base_url,
+            "customize_base_url": self.customize_base_url,
         }
 
         # 使用配置解析器
@@ -426,6 +465,8 @@ class Settings(BaseSettings):
             return self.embedding_model
         elif self.embedding_provider == "siliconflow":
             return self.siliconflow_embedding_model
+        elif self.embedding_provider == "customize":
+            return self.customize_embedding_model
         else:
             raise ValueError(f"Unsupported embedding provider: {self.embedding_provider}")
 
@@ -442,6 +483,7 @@ class Settings(BaseSettings):
             "deepseek_embedding_base_url": self.deepseek_embedding_base_url,
             "siliconflow_embedding_base_url": self.siliconflow_embedding_base_url,
             "anthropic_embedding_base_url": self.anthropic_embedding_base_url,
+            "customize_embedding_base_url": self.customize_embedding_base_url,
         })
 
         # 验证embedding URL

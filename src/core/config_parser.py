@@ -75,6 +75,8 @@ class URLConfigParser:
             return None  # Anthropic使用默认URL
         elif provider == "local":
             return None  # 本地模型不需要URL
+        elif provider == "customize":
+            return self.config.get("customize_base_url")
         else:
             raise ValueError(f"Unsupported embedding provider: {provider}")
 
@@ -131,4 +133,5 @@ class URLConfigParser:
             "deepseek_embedding_base_url": self.config.get("deepseek_embedding_base_url"),
             "siliconflow_embedding_base_url": self.config.get("siliconflow_embedding_base_url"),
             "anthropic_embedding_base_url": self.config.get("anthropic_embedding_base_url"),
+            "customize_embedding_base_url": self.config.get("customize_embedding_base_url"),
         }

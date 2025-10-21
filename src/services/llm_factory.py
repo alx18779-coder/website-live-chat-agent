@@ -33,7 +33,7 @@ def create_llm() -> BaseChatModel:
 
     try:
         # 使用插件化架构
-        if provider in ["openai", "deepseek", "siliconflow"]:
+        if provider in ["openai", "deepseek", "siliconflow","customize"]:
             return _create_plugin_llm(provider)
         elif provider == "anthropic":
             # Anthropic 暂时保持原有实现
@@ -76,46 +76,6 @@ def _create_plugin_llm(provider: str) -> BaseChatModel:
     return provider_instance.create_llm()
 
 
-def _create_deepseek_llm() -> ChatOpenAI:
-    """
-    创建 DeepSeek LLM（使用 OpenAI 兼容接口）
-
-    DeepSeek 提供 OpenAI 兼容的 API，可使用 ChatOpenAI 类。
-    """
-    if not settings.deepseek_api_key:
-        raise ConfigurationError(
-            "DEEPSEEK_API_KEY is required when LLM_PROVIDER=deepseek"
-        )
-
-    logger.info(f"Creating DeepSeek LLM: {settings.deepseek_model}")
-
-    return ChatOpenAI(
-        model=settings.deepseek_model,
-        openai_api_key=settings.deepseek_api_key,
-        openai_api_base=settings.deepseek_base_url,
-        temperature=settings.llm_temperature,
-        max_tokens=settings.llm_max_tokens,
-        model_kwargs={
-            "top_p": 1.0,
-        },
-    )
-
-
-def _create_openai_llm() -> ChatOpenAI:
-    """创建 OpenAI LLM"""
-    if not settings.openai_api_key:
-        raise ConfigurationError("OPENAI_API_KEY is required when LLM_PROVIDER=openai")
-
-    logger.info(f"Creating OpenAI LLM: {settings.openai_model}")
-
-    return ChatOpenAI(
-        model=settings.openai_model,
-        openai_api_key=settings.openai_api_key,
-        temperature=settings.llm_temperature,
-        max_tokens=settings.llm_max_tokens,
-    )
-
-
 def _create_anthropic_llm() -> Any:
     """创建 Anthropic Claude LLM"""
     if not settings.anthropic_api_key:
@@ -153,7 +113,7 @@ def create_embeddings() -> Any:
 
     try:
         # 使用插件化架构
-        if provider in ["openai", "deepseek", "siliconflow"]:
+        if provider in ["openai", "deepseek", "siliconflow", "customize"]:
             return _create_plugin_embeddings(provider)
         elif provider == "local":
             # 本地模型暂时保持原有实现
@@ -194,39 +154,6 @@ def _create_plugin_embeddings(provider: str) -> Any:
     return provider_instance.create_embeddings()
 
 
-def _create_deepseek_embeddings() -> Any:
-    """创建 DeepSeek Embeddings（使用 OpenAI 兼容接口）"""
-    if not settings.deepseek_api_key:
-        raise ConfigurationError(
-            "DEEPSEEK_API_KEY is required when EMBEDDING_PROVIDER=deepseek"
-        )
-
-    logger.info(f"Creating DeepSeek Embeddings: {settings.embedding_model}")
-
-    from langchain_openai import OpenAIEmbeddings
-
-    return OpenAIEmbeddings(
-        model=settings.embedding_model,
-        openai_api_key=settings.deepseek_api_key,
-        openai_api_base=settings.deepseek_base_url,
-    )
-
-
-def _create_openai_embeddings() -> Any:
-    """创建 OpenAI Embeddings"""
-    if not settings.openai_api_key:
-        raise ConfigurationError(
-            "OPENAI_API_KEY is required when EMBEDDING_PROVIDER=openai"
-        )
-
-    logger.info(f"Creating OpenAI Embeddings: {settings.embedding_model}")
-
-    from langchain_openai import OpenAIEmbeddings
-
-    return OpenAIEmbeddings(
-        model=settings.embedding_model,
-        openai_api_key=settings.openai_api_key,
-    )
 
 
 def _create_local_embeddings() -> Any:
