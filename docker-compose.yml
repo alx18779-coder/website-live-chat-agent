@@ -64,11 +64,11 @@ services:
       - LANGGRAPH_MAX_ITERATIONS=10
       - LANGGRAPH_CHECKPOINTER=redis
       
-      # RAG 配置
-      - RAG_TOP_K=3
-      - RAG_SCORE_THRESHOLD=0.7
-      - RAG_CHUNK_SIZE=500
-      - RAG_CHUNK_OVERLAP=50
+      # 向量召回配置
+      - VECTOR_TOP_K=3
+      - VECTOR_SCORE_THRESHOLD=0.7
+      - VECTOR_CHUNK_SIZE=500
+      - VECTOR_CHUNK_OVERLAP=50
       
       # 消息过滤配置
       - MESSAGE_FILTER_ENABLED=true

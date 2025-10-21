@@ -198,34 +198,33 @@ class Settings(BaseSettings):
     )
 
     # ===== 向量召回配置 =====
-    # 注意：rag_* 配置项已迁移为 vector_*，通过 validation_alias 保持向后兼容
     vector_top_k: int = Field(
         default=3,
         ge=1,
         le=10,
         description="向量召回 Top-K",
-        validation_alias="RAG_TOP_K"
+        validation_alias="VECTOR_TOP_K"
     )
     vector_score_threshold: float = Field(
         default=0.7,
         ge=0.0,
         le=1.0,
         description="向量召回相似度分数阈值",
-        validation_alias="RAG_SCORE_THRESHOLD"
+        validation_alias="VECTOR_SCORE_THRESHOLD"
     )
     vector_chunk_size: int = Field(
         default=500,
         ge=100,
         le=2000,
         description="向量召回文档切片大小（tokens）",
-        validation_alias="RAG_CHUNK_SIZE"
+        validation_alias="VECTOR_CHUNK_SIZE"
     )
     vector_chunk_overlap: int = Field(
         default=50,
         ge=0,
         le=500,
         description="向量召回文档切片重叠（tokens）",
-        validation_alias="RAG_CHUNK_OVERLAP"
+        validation_alias="VECTOR_CHUNK_OVERLAP"
     )
 
     # ===== 性能配置 =====
