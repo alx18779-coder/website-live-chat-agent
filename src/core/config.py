@@ -6,6 +6,7 @@
 """
 
 from typing import Literal
+from urllib.parse import quote_plus
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -176,6 +177,16 @@ class Settings(BaseSettings):
     redis_password: str = Field(default="", description="Redis 密码")
     redis_db: int = Field(default=0, ge=0, le=15, description="Redis 数据库编号")
     redis_max_connections: int = Field(default=10, ge=1, description="Redis 连接池大小")
+
+    # ===== PostgreSQL 配置 =====
+    postgres_host: str = Field(default="localhost", description="PostgreSQL 服务器地址")
+    postgres_port: int = Field(default=5432, ge=1, le=65535, description="PostgreSQL 端口")
+    postgres_user: str = Field(default="postgres", description="PostgreSQL 用户名")
+    postgres_password: str = Field(default="", description="PostgreSQL 密码")
+    postgres_database: str = Field(default="chat_agent", description="PostgreSQL 数据库名称")
+    postgres_pool_size: int = Field(default=5, ge=1, le=50, description="PostgreSQL 连接池大小")
+    postgres_max_overflow: int = Field(default=5, ge=0, le=50, description="PostgreSQL 连接池额外连接数")
+    postgres_echo: bool = Field(default=False, description="是否输出 SQL 调试日志")
 
     # ===== API 配置 =====
     api_key: str = Field(..., description="API 认证密钥（必填）")
@@ -468,6 +479,30 @@ class Settings(BaseSettings):
             return self.customize_embedding_model
         else:
             raise ValueError(f"Unsupported embedding provider: {self.embedding_provider}")
+
+    @property
+    def postgres_async_dsn(self) -> str:
+        """生成 PostgreSQL Async DSN"""
+
+        password = quote_plus(self.postgres_password)
+        user = quote_plus(self.postgres_user)
+        database = quote_plus(self.postgres_database)
+
+        return (
+            f"postgresql+asyncpg://{user}:{password}@{self.postgres_host}:{self.postgres_port}/{database}"
+        )
+
+    @property
+    def postgres_sync_dsn(self) -> str:
+        """生成 Alembic 使用的同步 DSN"""
+
+        password = quote_plus(self.postgres_password)
+        user = quote_plus(self.postgres_user)
+        database = quote_plus(self.postgres_database)
+
+        return (
+            f"postgresql://{user}:{password}@{self.postgres_host}:{self.postgres_port}/{database}"
+        )
 
     def validate_configuration(self) -> dict[str, bool]:
         """验证配置的有效性（增强版）"""
