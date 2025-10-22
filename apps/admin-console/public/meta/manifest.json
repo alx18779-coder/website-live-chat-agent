@@ -1,0 +1,10 @@
+{
+  "name": "Admin Console",
+  "short_name": "Admin",
+  "description": "运营管理控制台",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#2952FF",
+  "icons": []
+}
