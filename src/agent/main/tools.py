@@ -62,25 +62,28 @@ async def knowledge_search_tool(query: str, top_k: int = 3) -> str:
                 f"to fit 512 token limit"
             )
 
-        # 检索知识库
-        results = await milvus_service.search_knowledge(
+        # 检索知识库（使用新的Repository）
+        from src.repositories import get_knowledge_repository
+        
+        knowledge_repo = get_knowledge_repository()
+        knowledge_results = await knowledge_repo.search(
             query_embedding=query_embedding,
             top_k=top_k,
         )
 
-        if not results:
+        if not knowledge_results:
             return "知识库中未找到相关信息。"
 
         # 格式化结果
         formatted_results = []
-        for i, result in enumerate(results, 1):
-            metadata = result.get("metadata", {})
+        for i, result in enumerate(knowledge_results, 1):
+            metadata = result.metadata
             title = metadata.get("title", "未命名文档")
             formatted_results.append(
-                f"[文档{i}] {title} (相似度: {result['score']:.2f})\n{result['text']}"
+                f"[文档{i}] {title} (相似度: {result.score:.2f})\n{result.text}"
             )
 
-        logger.info(f"🔍 Knowledge search: found {len(results)} results for '{query}'")
+        logger.info(f"🔍 Knowledge search: found {len(knowledge_results)} results for '{query}'")
         return "\n\n".join(formatted_results)
 
     except Exception as e:
@@ -104,22 +107,25 @@ async def history_search_tool(query: str, session_id: str, top_k: int = 2) -> st
         格式化的历史对话字符串
     """
     try:
-        # 获取会话历史
-        results = await milvus_service.search_history_by_session(
+        # 获取会话历史（使用新的Repository）
+        from src.repositories import get_history_repository
+        
+        history_repo = get_history_repository()
+        history_results = await history_repo.search_by_session(
             session_id=session_id,
             limit=top_k,
         )
 
-        if not results:
+        if not history_results:
             return "未找到相关历史对话。"
 
         # 格式化结果
         formatted_results = []
-        for result in results:
-            role = "用户" if result["role"] == "user" else "助手"
-            formatted_results.append(f"{role}: {result['text']}")
+        for result in history_results:
+            role = "用户" if result.role == "user" else "助手"
+            formatted_results.append(f"{role}: {result.text}")
 
-        logger.info(f"📜 History search: found {len(results)} messages for session {session_id}")
+        logger.info(f"📜 History search: found {len(history_results)} messages for session {session_id}")
         return "\n".join(formatted_results)
 
     except Exception as e:
@@ -158,13 +164,26 @@ async def search_knowledge_for_agent(query: str, top_k: int = 3) -> list[dict[st
         if len(query) != len(truncated_query):
             logger.warning(f"Query truncated from {len(query)} to {len(truncated_query)} chars to fit 512 token limit")
 
-        results = await milvus_service.search_knowledge(
+        # 使用新的Repository
+        from src.repositories import get_knowledge_repository
+        
+        knowledge_repo = get_knowledge_repository()
+        knowledge_results = await knowledge_repo.search(
             query_embedding=query_embedding,
             top_k=top_k,
         )
 
-        logger.info(f"🔍 Retrieved {len(results)} documents for: {query}")
-        return results
+        logger.info(f"🔍 Retrieved {len(knowledge_results)} documents for: {query}")
+        
+        # 转换为dict格式以保持向后兼容
+        return [
+            {
+                "text": r.text,
+                "score": r.score,
+                "metadata": r.metadata,
+            }
+            for r in knowledge_results
+        ]
 
     except Exception as e:
         logger.error(f"Knowledge search failed: {e}")

@@ -49,6 +49,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             from src.services.milvus_service import milvus_service
             await milvus_service.initialize()
             logger.info("✅ Milvus initialized successfully")
+            
+            # 初始化Repository层
+            from src.repositories import initialize_repositories
+            await initialize_repositories()
+            logger.info("✅ Repositories initialized successfully")
         except Exception as e:
             logger.error(f"❌ Failed to initialize Milvus: {e}")
             logger.warning("⚠️  Continuing without Milvus (some features will not work)")

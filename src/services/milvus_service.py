@@ -1,12 +1,29 @@
 """
 Milvus 向量数据库服务
 
+⚠️ DEPRECATED: 此服务已废弃，请使用新的Repository模式。
+
 提供知识库和对话历史的向量存储与检索功能。
 使用AsyncMilvusClient实现原生异步操作，支持高并发场景。
+
+迁移指南:
+    旧代码:
+        from src.services.milvus_service import milvus_service
+        results = await milvus_service.search_knowledge(embedding, top_k=5)
+    
+    新代码:
+        from src.repositories import get_knowledge_repository
+        knowledge_repo = get_knowledge_repository()
+        results = await knowledge_repo.search(embedding, top_k=5)
+
+参考文档:
+    - ADR-0009: Repository模式重构
+    - src/repositories/README.md
 """
 
 import logging
 import time
+import warnings
 from typing import Any
 
 from pymilvus import AsyncMilvusClient, DataType
@@ -18,9 +35,25 @@ logger = logging.getLogger(__name__)
 
 
 class MilvusService:
-    """Milvus 向量数据库服务（异步版本）"""
+    """
+    Milvus 向量数据库服务（异步版本）
+    
+    .. deprecated:: 0.2.0
+        MilvusService已废弃，请使用Repository模式。
+        使用 `src.repositories.get_knowledge_repository()` 和 
+        `src.repositories.get_history_repository()` 替代。
+        
+        此类将在6个月后（2025-04-22）删除。
+    """
 
     def __init__(self) -> None:
+        warnings.warn(
+            "MilvusService is deprecated and will be removed in version 0.3.0. "
+            "Use Repository pattern instead: "
+            "from src.repositories import get_knowledge_repository, get_history_repository",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.client: AsyncMilvusClient | None = None
         self.knowledge_collection_name = settings.milvus_knowledge_collection
         self.history_collection_name = settings.milvus_history_collection
