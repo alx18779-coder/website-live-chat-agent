@@ -96,25 +96,26 @@ def test_knowledge_search_unauthorized(test_client):
 
 
 def test_knowledge_search_success(
-    test_client, api_headers, mock_milvus_service, mock_embeddings
+    test_client, api_headers, mock_knowledge_repository, mock_embeddings
 ):
     """测试成功检索文档"""
-    mock_milvus_service.search_knowledge.return_value = [
-        {
-            "id": "1",
-            "text": "退货政策文档",
-            "score": 0.95,
-            "metadata": {"source": "policy.md"},
-        },
-        {
-            "id": "2",
-            "text": "保修政策文档",
-            "score": 0.88,
-            "metadata": {"source": "warranty.md"},
-        },
+    from src.models.entities.knowledge import Knowledge
+    
+    # 使用Knowledge实体（新的Repository返回类型）
+    mock_knowledge_repository.search.return_value = [
+        Knowledge(
+            text="退货政策文档",
+            score=0.95,
+            metadata={"source": "policy.md"},
+        ),
+        Knowledge(
+            text="保修政策文档",
+            score=0.88,
+            metadata={"source": "warranty.md"},
+        ),
     ]
 
-    with patch("src.api.v1.knowledge.milvus_service", mock_milvus_service):
+    with patch("src.repositories.get_knowledge_repository", return_value=mock_knowledge_repository):
         with patch("src.services.llm_factory.create_embeddings", return_value=mock_embeddings):
             response = test_client.get(
                 "/api/v1/knowledge/search",

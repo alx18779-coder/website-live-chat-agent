@@ -16,20 +16,22 @@ class TestIssue31CompleteFix:
     @pytest.mark.asyncio
     async def test_search_knowledge_for_agent_token_truncation(self):
         """测试search_knowledge_for_agent函数的token截断"""
+        from src.models.entities.knowledge import Knowledge
+        
         # 模拟长查询文本（超过512 tokens）
         long_query = "这是一个非常长的查询文本，" * 100  # 确保超过512 tokens
 
-        # 模拟embeddings和milvus_service
+        # 模拟embeddings和knowledge_repository
         mock_embeddings = AsyncMock()
         mock_embeddings.aembed_query.return_value = [0.1] * 1536  # 模拟embedding向量
 
-        mock_milvus_service = AsyncMock()
-        mock_milvus_service.search_knowledge.return_value = [
-            {"text": "测试文档", "score": 0.9, "metadata": {}}
+        mock_knowledge_repo = AsyncMock()
+        mock_knowledge_repo.search.return_value = [
+            Knowledge(text="测试文档", score=0.9, metadata={})
         ]
 
         with patch('src.agent.main.tools.create_embeddings', return_value=mock_embeddings), \
-             patch('src.agent.main.tools.milvus_service', mock_milvus_service), \
+             patch('src.repositories.get_knowledge_repository', return_value=mock_knowledge_repo), \
              patch('src.agent.main.tools.logger') as mock_logger:
 
             # 调用函数
@@ -55,23 +57,25 @@ class TestIssue31CompleteFix:
     @pytest.mark.asyncio
     async def test_search_knowledge_api_token_truncation(self):
         """测试search_knowledge API函数的token截断"""
+        from src.models.entities.knowledge import Knowledge
+        
         # 模拟长查询文本
         long_query = "这是一个非常长的查询文本，" * 100
 
-        # 模拟llm_factory和milvus_service
+        # 模拟llm_factory和knowledge_repository
         mock_embeddings = AsyncMock()
         mock_embeddings.aembed_query.return_value = [0.1] * 1536
 
         mock_llm_factory = MagicMock()
         mock_llm_factory.create_embeddings.return_value = mock_embeddings
 
-        mock_milvus_service = AsyncMock()
-        mock_milvus_service.search_knowledge.return_value = [
-            {"text": "测试文档", "score": 0.9, "metadata": {}}
+        mock_knowledge_repo = AsyncMock()
+        mock_knowledge_repo.search.return_value = [
+            Knowledge(text="测试文档", score=0.9, metadata={})
         ]
 
         with patch('src.api.v1.knowledge.llm_factory', mock_llm_factory), \
-             patch('src.api.v1.knowledge.milvus_service', mock_milvus_service):
+             patch('src.repositories.get_knowledge_repository', return_value=mock_knowledge_repo):
 
             # 调用函数
             result = await search_knowledge(long_query, top_k=3)
@@ -91,18 +95,20 @@ class TestIssue31CompleteFix:
     @pytest.mark.asyncio
     async def test_short_query_no_truncation(self):
         """测试短查询不会被截断"""
+        from src.models.entities.knowledge import Knowledge
+        
         short_query = "短查询"
 
         mock_embeddings = AsyncMock()
         mock_embeddings.aembed_query.return_value = [0.1] * 1536
 
-        mock_milvus_service = AsyncMock()
-        mock_milvus_service.search_knowledge.return_value = [
-            {"text": "测试文档", "score": 0.9, "metadata": {}}
+        mock_knowledge_repo = AsyncMock()
+        mock_knowledge_repo.search.return_value = [
+            Knowledge(text="测试文档", score=0.9, metadata={})
         ]
 
         with patch('src.agent.main.tools.create_embeddings', return_value=mock_embeddings), \
-             patch('src.agent.main.tools.milvus_service', mock_milvus_service), \
+             patch('src.repositories.get_knowledge_repository', return_value=mock_knowledge_repo), \
              patch('src.agent.main.tools.logger') as mock_logger:
 
             # 调用函数
