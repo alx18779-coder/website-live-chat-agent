@@ -11,6 +11,7 @@ pnpm dev
 ```
 
 开发阶段默认从 `.env.local` 中读取 `NEXT_PUBLIC_API_BASE_URL` 指向 FastAPI 服务。
+如需访问需要认证的接口，可额外配置 `NEXT_PUBLIC_API_KEY=<后端 API_KEY>`，客户端请求会自动带上对应的 Authorization 头。
 
 ## 目录结构
 

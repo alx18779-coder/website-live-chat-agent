@@ -21,13 +21,20 @@ export class HttpError extends Error {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers ?? {});
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+  if (apiKey && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${apiKey}`);
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-    credentials: 'include',
+    headers,
+    credentials: init?.credentials ?? 'omit',
   });
 
   const requestId = response.headers.get('x-request-id') ?? undefined;

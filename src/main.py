@@ -95,6 +95,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.error(f"Error closing PostgreSQL engine: {e}")
 
+    try:
+        await redis_service.close()
+    except Exception as e:
+        logger.error(f"Error closing Redis client: {e}")
+
 
 # 创建 FastAPI 应用
 app = FastAPI(
@@ -135,11 +140,13 @@ async def app_exception_handler(request, exc: AppException) -> JSONResponse:
 
 # 注册路由
 # ruff: noqa: E402 - 导入必须在app创建后，避免循环依赖
-from src.api.v1 import knowledge, openai_compat
+from src.api.v1 import knowledge, metrics, openai_compat
 from src.services.milvus_service import milvus_service
 from src.services.postgres_service import postgres_service
+from src.services.redis_service import redis_service
 
 app.include_router(openai_compat.router, prefix="/v1", tags=["Chat"])
+app.include_router(metrics.router, prefix="/api/v1", tags=["Metrics"])
 app.include_router(knowledge.router, prefix="/api/v1", tags=["Knowledge"])
 
 
