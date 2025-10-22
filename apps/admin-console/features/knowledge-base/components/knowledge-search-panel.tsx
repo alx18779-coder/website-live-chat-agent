@@ -25,7 +25,7 @@ interface KnowledgeSearchPanelProps {
 }
 
 function escapeRegExp(input: string) {
-  return input.replace(/[.*+?^${}()|[\]\]/g, '\$&');
+  return input.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
 
 function highlight(text: string, keyword: string) {
