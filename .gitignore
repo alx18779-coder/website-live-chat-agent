@@ -68,3 +68,12 @@ Thumbs.db
 *.tmp
 *.temp
 
+# Node / Frontend
+node_modules/
+.next/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+apps/admin-console/.next/
+apps/admin-console/node_modules/
+
