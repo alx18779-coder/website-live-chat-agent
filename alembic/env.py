@@ -1,22 +1,39 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from logging.config import fileConfig
+from urllib.parse import quote_plus
 
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine, async_engine_from_config
 
-from src.core.config import settings
-
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+
+def _build_async_dsn() -> str:
+    """Compute the asyncpg DSN without importing the full application settings."""
+
+    direct_url = os.getenv("POSTGRES_ASYNC_DSN")
+    if direct_url:
+        return direct_url
+
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    user = quote_plus(os.getenv("POSTGRES_USER", "postgres"))
+    password = quote_plus(os.getenv("POSTGRES_PASSWORD", ""))
+    database = quote_plus(os.getenv("POSTGRES_DATABASE", "chat_agent"))
+
+    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}"
+
+
 # 使用异步 DSN，确保 Alembic 在线迁移时复用 asyncpg 驱动
-config.set_main_option("sqlalchemy.url", settings.postgres_async_dsn)
+config.set_main_option("sqlalchemy.url", _build_async_dsn())
 
 target_metadata = None
 
