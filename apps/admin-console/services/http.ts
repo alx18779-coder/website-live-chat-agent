@@ -48,7 +48,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
       headers,
-      credentials: init?.credentials ?? 'omit',
+      credentials: init?.credentials ?? 'include',
     });
   } catch (error) {
     httpLogger.error('请求发送失败', {
