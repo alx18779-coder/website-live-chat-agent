@@ -42,6 +42,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"📊 LLM Model: {settings.llm_model_name}")
     logger.info(f"🗄️  Milvus Host: {settings.milvus_host}:{settings.milvus_port}")
     logger.info(f"💾 Redis Host: {settings.redis_host}:{settings.redis_port}")
+    logger.info(
+        "🐘 PostgreSQL: %s:%s/%s",
+        settings.postgres_host,
+        settings.postgres_port,
+        settings.postgres_database,
+    )
 
     # 初始化 Milvus
     try:
@@ -51,6 +57,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.error(f"❌ Failed to initialize Milvus: {e}")
         logger.warning("⚠️  Continuing without Milvus (some features will not work)")
+
+    # 初始化 PostgreSQL
+    try:
+        from src.services.postgres_service import postgres_service
+
+        await postgres_service.initialize()
+        logger.info("✅ PostgreSQL initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize PostgreSQL: {e}")
+        logger.warning(
+            "⚠️  Continuing without PostgreSQL (administrative capabilities will be limited)"
+        )
 
     # 预编译 LangGraph App
     try:
@@ -69,6 +87,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await milvus_service.close()
     except Exception as e:
         logger.error(f"Error closing Milvus: {e}")
+
+    try:
+        from src.services.postgres_service import postgres_service
+
+        await postgres_service.close()
+    except Exception as e:
+        logger.error(f"Error closing PostgreSQL engine: {e}")
 
 
 # 创建 FastAPI 应用
@@ -112,6 +137,7 @@ async def app_exception_handler(request, exc: AppException) -> JSONResponse:
 # ruff: noqa: E402 - 导入必须在app创建后，避免循环依赖
 from src.api.v1 import knowledge, openai_compat
 from src.services.milvus_service import milvus_service
+from src.services.postgres_service import postgres_service
 
 app.include_router(openai_compat.router, prefix="/v1", tags=["Chat"])
 app.include_router(knowledge.router, prefix="/api/v1", tags=["Knowledge"])
@@ -122,9 +148,12 @@ app.include_router(knowledge.router, prefix="/api/v1", tags=["Knowledge"])
 async def health_check() -> dict:
     """健康检查"""
     milvus_healthy = milvus_service.health_check()
+    postgres_healthy = await postgres_service.health_check()
+
+    overall_healthy = milvus_healthy and postgres_healthy
 
     return {
-        "status": "healthy" if milvus_healthy else "degraded",
+        "status": "healthy" if overall_healthy else "degraded",
         "services": {
             "milvus": {
                 "status": "healthy" if milvus_healthy else "unhealthy",
@@ -133,6 +162,11 @@ async def health_check() -> dict:
             "redis": {
                 "status": "healthy",  # TODO: 实际检查 Redis
                 "host": settings.redis_host,
+            },
+            "postgres": {
+                "status": "healthy" if postgres_healthy else "unhealthy",
+                "host": settings.postgres_host,
+                "database": settings.postgres_database,
             },
         },
         "timestamp": int(__import__("time").time()),

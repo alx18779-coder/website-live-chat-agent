@@ -7,6 +7,7 @@
 - ✅ Python 3.13+
 - ✅ DeepSeek API Key（或 OpenAI API Key）
 - ✅ 已部署的 Milvus 服务
+- ✅ PostgreSQL 15+（用于权限、审计与配置存储）
 - ✅ Redis（可选，用于生产环境）
 
 ## 🛠️ 安装步骤
@@ -37,6 +38,13 @@ DEEPSEEK_API_KEY=sk-your-deepseek-api-key-here
 MILVUS_HOST=192.168.1.100  # 改为你的 Milvus 地址
 MILVUS_PORT=19530
 
+# PostgreSQL 连接信息（必填）
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=secure-password
+POSTGRES_DATABASE=chat_agent
+
 # API 认证密钥（必填）
 API_KEY=my-secure-api-key-12345  # 改为你的密钥
 ```
@@ -62,20 +70,58 @@ uv pip install -e .
 pip install -e .
 ```
 
-### 4️⃣ 启动服务
+### 4️⃣ 初始化 PostgreSQL（首次运行必做）
 
-**⚠️ 重要**：直接运行 Python 需要先启动 Redis！
+项目已提供 `scripts/init_postgres.sh` 脚本，会读取 `.env` 并通过 Alembic 自动应用所有迁移：
+
+```bash
+# 确保 PostgreSQL 容器/实例已启动，再执行
+./scripts/init_postgres.sh
+```
+
+脚本默认读取 `.env` 中的数据库配置；若未提供，将使用开发默认值（`localhost:5432`、数据库名 `chat_agent` 等），然后执行 `uv run alembic upgrade head`。
+
+执行成功后会看到 `[init_postgres] ✅ PostgreSQL 迁移已应用`，可通过 `alembic history --verbose` 或 `psql -c "\dt"` 验证当前表结构。
+
+### 5️⃣ 启动服务
+
+#### ✅ 最快捷：一键开发启动脚本
+
+```bash
+./scripts/start_dev.sh
+```
+
+该脚本会自动执行以下步骤：
+
+- 调用 `uv sync` 安装/同步 Python 依赖；
+- 读取项目根目录下的 `.env`（如存在），并为缺失变量填充开发默认值；
+- 默认启用内存模式的 LangGraph Checkpointer，Milvus 连接失败时自动降级为“部分功能不可用”但服务仍可运行；
+- 自动注入 PostgreSQL 默认连接信息（本地 5432 端口），便于管理端相关接口联调；
+- 通过 `uv run uvicorn` 启动 FastAPI 开发服务器（默认端口 8000）。
+
+#### ⚙️ 手动方式（更细粒度控制）
+
+**⚠️ 重要**：直接运行 Python 需要先启动 PostgreSQL 与 Redis！
 
 #### 方式 A：使用 Docker 启动 Redis（推荐）
 
 ```bash
-# 1. 启动 Redis
+# 1. 启动 PostgreSQL
+docker run -d \
+  --name chat-agent-postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=secure-password \
+  -e POSTGRES_DB=chat_agent \
+  -p 5432:5432 \
+  postgres:15-alpine
+
+# 2. 启动 Redis
 docker run -d \
   --name redis \
   -p 6379:6379 \
   redis:7-alpine
 
-# 2. 启动应用
+# 3. 启动应用
 python src/main.py
 
 # 或使用 uvicorn（开发模式）
@@ -102,13 +148,15 @@ python src/main.py
 📊 LLM Model: deepseek-chat
 🗄️  Milvus Host: 192.168.1.100:19530
 💾 Redis Host: localhost:6379
+🐘 PostgreSQL: 127.0.0.1:5432/chat_agent
 ✅ Connected to Milvus: 192.168.1.100:19530
 ✅ Milvus initialized successfully
+✅ PostgreSQL initialized successfully
 ✅ LangGraph Agent compiled successfully
 INFO:     Uvicorn running on http://0.0.0.0:8000
 ```
 
-### 5️⃣ 验证服务
+### 6️⃣ 验证服务
 
 打开浏览器访问：
 
@@ -134,6 +182,11 @@ curl http://localhost:8000/api/v1/health
     "redis": {
       "status": "healthy",
       "host": "localhost"
+    },
+    "postgres": {
+      "status": "healthy",
+      "host": "127.0.0.1",
+      "database": "chat_agent"
     }
   },
   "timestamp": 1699999999

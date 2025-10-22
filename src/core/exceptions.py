@@ -42,6 +42,13 @@ class RedisConnectionError(AppException):
         super().__init__(message, code="redis_connection_error")
 
 
+class PostgresConnectionError(AppException):
+    """PostgreSQL 连接错误"""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, code="postgres_connection_error")
+
+
 class AuthenticationError(AppException):
     """认证错误（API Key 无效）"""
 

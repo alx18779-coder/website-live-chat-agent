@@ -2,6 +2,8 @@
 知识库数据模型
 """
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -52,4 +54,28 @@ class KnowledgeSearchResponse(BaseModel):
     results: list[SearchResult]
     query: str
     total_results: int
+
+
+class KnowledgeDocumentSummary(BaseModel):
+    """知识库文档概要信息"""
+
+    id: str = Field(..., description="文档唯一标识")
+    title: str = Field(..., description="文档标题")
+    category: str | None = Field(default=None, description="所属分类")
+    tags: list[str] = Field(default_factory=list, description="标签列表")
+    version: str | None = Field(default=None, description="版本信息")
+    status: str = Field(default="draft", description="文档状态")
+    chunk_count: int = Field(default=1, ge=1, description="向量切片数量")
+    updated_at: datetime = Field(..., description="最近更新时间")
+    created_by: str | None = Field(default=None, description="创建人")
+    metadata: dict = Field(default_factory=dict, description="原始元数据")
+
+
+class KnowledgeDocumentListResponse(BaseModel):
+    """知识库文档分页响应"""
+
+    documents: list[KnowledgeDocumentSummary]
+    total: int = Field(..., ge=0, description="文档总数")
+    page: int = Field(..., ge=1, description="当前页码")
+    page_size: int = Field(..., ge=1, description="每页数量")
 
