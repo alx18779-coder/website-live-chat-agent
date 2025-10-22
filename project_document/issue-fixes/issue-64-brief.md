@@ -26,11 +26,17 @@
 - 修改文件：3个（74行变更）
 
 ## 测试状态
-- ⏭️ 待运行：单元测试和集成测试
-- ⏭️ 待检查：代码覆盖率
+- ✅ 单元测试通过：6/6测试全部通过
+- ✅ 修复Pydantic V2兼容性警告
+- ✅ 测试Mock策略更新：使用Repository代替milvus_service
+- ⏭️ 完整测试套件待运行
+
+## 技术改进
+- 使用Pydantic V2 ConfigDict（移除deprecation警告）
+- 测试使用强类型实体（Knowledge, ConversationHistory）
+- 所有Repository mock正确配置
 
 ## 下一步
-- 运行pytest验证功能
 - 标记旧MilvusService为deprecated
 - 创建PR请求AR审查
 
