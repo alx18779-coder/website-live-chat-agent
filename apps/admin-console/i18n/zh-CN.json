@@ -1,0 +1,11 @@
+{
+  "navigation": {
+    "dashboard": "仪表盘",
+    "knowledgeBase": "知识库",
+    "conversations": "会话审查",
+    "modelRouting": "模型与路由",
+    "integrations": "接入配置",
+    "monitoring": "监控与审计",
+    "settings": "系统设置"
+  }
+}
