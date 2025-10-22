@@ -170,6 +170,12 @@ class Settings(BaseSettings):
     milvus_history_collection: str = Field(
         default="conversation_history", description="对话历史 Collection 名称"
     )
+    knowledge_documents_fetch_limit: int = Field(
+        default=2000,
+        ge=100,
+        le=20000,
+        description="知识库文档列表单次最大拉取数量",
+    )
 
     # ===== Redis 配置 =====
     redis_host: str = Field(default="localhost", description="Redis 服务器地址")

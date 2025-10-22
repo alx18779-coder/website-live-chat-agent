@@ -6,6 +6,7 @@ Milvus 向量数据库服务
 
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from pymilvus import (
@@ -284,6 +285,140 @@ class MilvusService:
 
         logger.info(f"📥 Inserted {len(documents)} documents into knowledge base")
         return len(documents)
+
+    async def list_knowledge_documents(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        keyword: str | None = None,
+        status: str | None = None,
+        tags: list[str] | None = None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """列出知识库文档概要信息"""
+
+        if not self.knowledge_collection:
+            raise MilvusConnectionError("Knowledge collection not initialized")
+
+        collection = self.knowledge_collection
+        assert collection is not None  # for type checker
+
+        try:
+            total_entities = int(collection.num_entities)
+        except Exception as exc:  # pragma: no cover - Milvus 内部异常
+            logger.error(f"Failed to read knowledge collection entity count: {exc}")
+            total_entities = 0
+
+        if total_entities == 0:
+            return [], 0
+
+        fetch_limit = min(
+            max(page * page_size, page_size),
+            settings.knowledge_documents_fetch_limit,
+            total_entities,
+        )
+
+        try:
+            raw_results = collection.query(
+                expr="id != ''",
+                output_fields=["id", "text", "metadata", "created_at"],
+                limit=fetch_limit,
+            )
+        except Exception as exc:  # pragma: no cover - 依赖外部 Milvus 行为
+            logger.error(f"Query knowledge documents failed: {exc}")
+            raise
+
+        if total_entities > fetch_limit:
+            logger.warning(
+                "Knowledge document listing truncated to %s rows (total entities: %s)",
+                fetch_limit,
+                total_entities,
+            )
+
+        def _coerce_datetime(value: Any) -> datetime:
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, (int, float)):
+                return datetime.fromtimestamp(value, tz=timezone.utc)
+            if isinstance(value, str):
+                try:
+                    parsed = datetime.fromisoformat(value)
+                    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    pass
+            return datetime.now(tz=timezone.utc)
+
+        def _ensure_tags(raw: Any) -> list[str]:
+            if not raw:
+                return []
+            if isinstance(raw, list):
+                return [str(item) for item in raw]
+            if isinstance(raw, str):
+                return [token.strip() for token in raw.split(",") if token.strip()]
+            return [str(raw)]
+
+        summaries: list[dict[str, Any]] = []
+        keyword_lower = keyword.lower() if keyword else None
+        required_tags = set(tags or [])
+
+        for entry in sorted(
+            raw_results,
+            key=lambda item: item.get("created_at", 0),
+            reverse=True,
+        ):
+            metadata = entry.get("metadata") or {}
+            text: str = entry.get("text") or ""
+
+            title = (
+                metadata.get("title")
+                or metadata.get("name")
+                or (text[:40] + "…" if len(text) > 40 else text or entry.get("id", "未知文档"))
+            )
+
+            summary_status = str(metadata.get("status", "draft"))
+            summary_tags = _ensure_tags(metadata.get("tags"))
+
+            if keyword_lower and keyword_lower not in title.lower() and keyword_lower not in text.lower():
+                continue
+
+            if status and summary_status != status:
+                continue
+
+            if required_tags and not required_tags.issubset(set(summary_tags)):
+                continue
+
+            chunk_count = metadata.get("total_chunks") or metadata.get("chunk_count") or 1
+            try:
+                chunk_count_int = int(chunk_count)
+            except (TypeError, ValueError):
+                chunk_count_int = 1
+
+            updated_raw = (
+                metadata.get("updated_at")
+                or metadata.get("last_modified")
+                or entry.get("created_at")
+            )
+
+            summaries.append(
+                {
+                    "id": entry.get("id"),
+                    "title": title,
+                    "category": metadata.get("category") or metadata.get("group"),
+                    "tags": summary_tags,
+                    "version": metadata.get("version"),
+                    "status": summary_status,
+                    "chunk_count": max(chunk_count_int, 1),
+                    "updated_at": _coerce_datetime(updated_raw),
+                    "created_by": metadata.get("created_by") or metadata.get("author"),
+                    "metadata": metadata,
+                }
+            )
+
+        total_filtered = len(summaries)
+        offset = max((page - 1) * page_size, 0)
+        paginated = summaries[offset : offset + page_size]
+
+        return paginated, total_filtered
 
     async def search_history_by_session(
         self,

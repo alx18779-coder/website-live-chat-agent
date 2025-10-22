@@ -11,10 +11,32 @@ fi
 
 if [ -f .env ]; then
   echo "[init_postgres] 载入 .env 中的数据库配置"
-  set -o allexport
-  # shellcheck disable=SC1091
-  source .env
-  set +o allexport
+  while IFS='=' read -r raw_key raw_value; do
+    key="${raw_key#${raw_key%%[![:space:]]*}}"
+    key="${key%${key##*[![:space:]]}}"
+    # 仅解析以 POSTGRES_ 开头的行，忽略注释与空行
+    case "${key}" in
+      ''|\#* )
+        continue
+        ;;
+      POSTGRES_* )
+        value="${raw_value%%#*}"            # 移除行内注释
+        value="${value%%$'\r'}"             # 去除 CR
+        # 去除首尾空白
+        value="${value#${value%%[![:space:]]*}}"
+        value="${value%${value##*[![:space:]]}}"
+        # 去除包裹的引号
+        if [[ ${#value} -ge 2 ]]; then
+          first_char="${value:0:1}"
+          last_char="${value: -1}"
+          if [[ ( "${first_char}" == '"' && "${last_char}" == '"' ) || ( "${first_char}" == "'" && "${last_char}" == "'" ) ]]; then
+            value="${value:1:${#value}-2}"
+          fi
+        fi
+        export "${key}=${value}"
+        ;;
+    esac
+  done < .env
 fi
 
 export POSTGRES_HOST="${POSTGRES_HOST:-localhost}"

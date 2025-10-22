@@ -7,16 +7,18 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.core.security import verify_api_key
 from src.models.knowledge import (
+    KnowledgeDocumentListResponse,
     KnowledgeSearchResponse,
     KnowledgeUpsertRequest,
     KnowledgeUpsertResponse,
     SearchResult,
 )
 from src.services import llm_factory
+from src.core.exceptions import MilvusConnectionError
 from src.services.milvus_service import milvus_service
 
 logger = logging.getLogger(__name__)
@@ -98,6 +100,35 @@ async def upsert_knowledge(request: KnowledgeUpsertRequest) -> KnowledgeUpsertRe
             collection_name=request.collection_name,
             message=f"上传失败: {str(e)}",
         )
+
+
+@router.get("/knowledge/documents", response_model=KnowledgeDocumentListResponse)
+async def list_knowledge_documents(
+    page: int = Query(default=1, ge=1, description="页码，从1开始"),
+    page_size: int = Query(default=20, ge=1, le=200, description="每页数量"),
+    keyword: str | None = Query(default=None, description="搜索关键字"),
+    status: str | None = Query(default=None, description="状态过滤"),
+    tags: list[str] | None = Query(default=None, description="标签过滤"),
+) -> KnowledgeDocumentListResponse:
+    """分页获取知识库文档概要信息"""
+
+    try:
+        documents, total = await milvus_service.list_knowledge_documents(
+            page=page,
+            page_size=page_size,
+            keyword=keyword,
+            status=status,
+            tags=tags,
+        )
+    except MilvusConnectionError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    return KnowledgeDocumentListResponse(
+        documents=documents,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/knowledge/search", response_model=KnowledgeSearchResponse)
