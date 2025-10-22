@@ -7,7 +7,7 @@ Collection Schema基类
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class BaseCollectionSchema(ABC, BaseModel):
@@ -18,12 +18,10 @@ class BaseCollectionSchema(ABC, BaseModel):
     用于定义collection的结构、索引配置等。
     """
     
+    model_config = ConfigDict(arbitrary_types_allowed=True, use_enum_values=True)
+    
     # Collection名称（子类必须定义）
     COLLECTION_NAME: ClassVar[str]
-    
-    class Config:
-        arbitrary_types_allowed = True
-        use_enum_values = True
     
     @classmethod
     @abstractmethod
