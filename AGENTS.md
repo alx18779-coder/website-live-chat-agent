@@ -1,3 +1,8 @@
+# 环境初始化
+- git clone到本地后，使用uv sync初始化python环境
+- 执行.venv/bin/python src/main.py 启动后台服务
+- 执行cd apps/admin-console && pnpm install && pnpm dev启动前端服务
+  
 # 行为指导
 #### **核心原则 (Core Principle)**
 
