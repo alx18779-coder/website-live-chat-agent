@@ -2,20 +2,14 @@
 Milvus 向量数据库服务
 
 提供知识库和对话历史的向量存储与检索功能。
+使用AsyncMilvusClient实现原生异步操作，支持高并发场景。
 """
 
 import logging
 import time
 from typing import Any
 
-from pymilvus import (
-    Collection,
-    CollectionSchema,
-    DataType,
-    FieldSchema,
-    connections,
-    utility,
-)
+from pymilvus import AsyncMilvusClient, DataType
 
 from src.core.config import settings
 from src.core.exceptions import MilvusConnectionError
@@ -24,12 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 class MilvusService:
-    """Milvus 向量数据库服务"""
+    """Milvus 向量数据库服务（异步版本）"""
 
     def __init__(self) -> None:
-        self.conn_alias = "default"
-        self.knowledge_collection: Collection | None = None
-        self.history_collection: Collection | None = None
+        self.client: AsyncMilvusClient | None = None
+        self.knowledge_collection_name = settings.milvus_knowledge_collection
+        self.history_collection_name = settings.milvus_history_collection
 
     async def initialize(self) -> None:
         """
@@ -39,11 +33,12 @@ class MilvusService:
             MilvusConnectionError: 连接失败
         """
         try:
-            # 连接 Milvus
-            connections.connect(
-                alias=self.conn_alias,
-                host=settings.milvus_host,
-                port=settings.milvus_port,
+            # 构建Milvus URI
+            uri = f"http://{settings.milvus_host}:{settings.milvus_port}"
+            
+            # 创建异步客户端
+            self.client = AsyncMilvusClient(
+                uri=uri,
                 user=settings.milvus_user,
                 password=settings.milvus_password,
                 db_name=settings.milvus_database,
@@ -63,139 +58,140 @@ class MilvusService:
 
     async def _create_knowledge_collection(self) -> None:
         """创建知识库 Collection（如果不存在）"""
-        collection_name = settings.milvus_knowledge_collection
+        if not self.client:
+            raise MilvusConnectionError("Milvus client not initialized")
+            
+        collection_name = self.knowledge_collection_name
 
         # 检查 Collection 是否存在
-        if utility.has_collection(collection_name, using=self.conn_alias):
-            logger.info(f"📂 Collection '{collection_name}' already exists, loading...")
-            self.knowledge_collection = Collection(collection_name, using=self.conn_alias)
-            self.knowledge_collection.load()
+        has_collection = await self.client.has_collection(collection_name)
+        if has_collection:
+            logger.info(f"📂 Collection '{collection_name}' already exists")
             return
 
-        # 定义 Schema
-        fields = [
-            FieldSchema(
-                name="id",
-                dtype=DataType.VARCHAR,
-                max_length=64,
-                is_primary=True,
-                description="文档唯一标识",
-            ),
-            FieldSchema(
-                name="text",
-                dtype=DataType.VARCHAR,
-                max_length=10000,
-                description="文档文本内容",
-            ),
-            FieldSchema(
-                name="embedding",
-                dtype=DataType.FLOAT_VECTOR,
-                dim=settings.embedding_dim,
-                description="文本向量",
-            ),
-            FieldSchema(name="metadata", dtype=DataType.JSON, description="文档元数据"),
-            FieldSchema(
-                name="created_at", dtype=DataType.INT64, description="创建时间戳（秒）"
-            ),
-        ]
+        # 定义 Schema - AsyncMilvusClient使用字典格式
+        schema = {
+            "fields": [
+                {
+                    "name": "id",
+                    "dtype": DataType.VARCHAR,
+                    "max_length": 64,
+                    "is_primary": True,
+                    "description": "文档唯一标识",
+                },
+                {
+                    "name": "text",
+                    "dtype": DataType.VARCHAR,
+                    "max_length": 10000,
+                    "description": "文档文本内容",
+                },
+                {
+                    "name": "embedding",
+                    "dtype": DataType.FLOAT_VECTOR,
+                    "dim": settings.embedding_dim,
+                    "description": "文本向量",
+                },
+                {
+                    "name": "metadata",
+                    "dtype": DataType.JSON,
+                    "description": "文档元数据",
+                },
+                {
+                    "name": "created_at",
+                    "dtype": DataType.INT64,
+                    "description": "创建时间戳（秒）",
+                },
+            ],
+            "description": "网站知识库",
+            "enable_dynamic_field": False,
+        }
 
-        schema = CollectionSchema(
-            fields=fields,
-            description="网站知识库",
-            enable_dynamic_field=False,
-        )
-
-        # 创建 Collection
-        self.knowledge_collection = Collection(
-            name=collection_name,
-            schema=schema,
-            using=self.conn_alias,
-        )
-
-        # 创建向量索引
+        # 索引参数
         index_params = {
+            "field_name": "embedding",
             "metric_type": "COSINE",
             "index_type": "IVF_FLAT",
             "params": {"nlist": 128},
         }
-        self.knowledge_collection.create_index(
-            field_name="embedding",
+
+        # 创建 Collection（AsyncMilvusClient会自动创建索引并加载）
+        await self.client.create_collection(
+            collection_name=collection_name,
+            schema=schema,
             index_params=index_params,
         )
-
-        # 加载到内存
-        self.knowledge_collection.load()
+        
         logger.info(f"✅ Created and loaded collection: {collection_name}")
 
     async def _create_history_collection(self) -> None:
         """创建对话历史 Collection（如果不存在）"""
-        collection_name = settings.milvus_history_collection
+        if not self.client:
+            raise MilvusConnectionError("Milvus client not initialized")
+            
+        collection_name = self.history_collection_name
 
-        if utility.has_collection(collection_name, using=self.conn_alias):
-            logger.info(f"📂 Collection '{collection_name}' already exists, loading...")
-            self.history_collection = Collection(collection_name, using=self.conn_alias)
-            self.history_collection.load()
+        # 检查 Collection 是否存在
+        has_collection = await self.client.has_collection(collection_name)
+        if has_collection:
+            logger.info(f"📂 Collection '{collection_name}' already exists")
             return
 
-        fields = [
-            FieldSchema(
-                name="id",
-                dtype=DataType.VARCHAR,
-                max_length=64,
-                is_primary=True,
-            ),
-            FieldSchema(
-                name="session_id",
-                dtype=DataType.VARCHAR,
-                max_length=64,
-                description="会话ID",
-            ),
-            FieldSchema(
-                name="text",
-                dtype=DataType.VARCHAR,
-                max_length=5000,
-                description="对话文本",
-            ),
-            FieldSchema(
-                name="embedding",
-                dtype=DataType.FLOAT_VECTOR,
-                dim=settings.embedding_dim,
-            ),
-            FieldSchema(
-                name="role",
-                dtype=DataType.VARCHAR,
-                max_length=20,
-                description="user 或 assistant",
-            ),
-            FieldSchema(name="timestamp", dtype=DataType.INT64, description="消息时间戳"),
-        ]
+        # 定义 Schema
+        schema = {
+            "fields": [
+                {
+                    "name": "id",
+                    "dtype": DataType.VARCHAR,
+                    "max_length": 64,
+                    "is_primary": True,
+                },
+                {
+                    "name": "session_id",
+                    "dtype": DataType.VARCHAR,
+                    "max_length": 64,
+                    "description": "会话ID",
+                },
+                {
+                    "name": "text",
+                    "dtype": DataType.VARCHAR,
+                    "max_length": 5000,
+                    "description": "对话文本",
+                },
+                {
+                    "name": "embedding",
+                    "dtype": DataType.FLOAT_VECTOR,
+                    "dim": settings.embedding_dim,
+                },
+                {
+                    "name": "role",
+                    "dtype": DataType.VARCHAR,
+                    "max_length": 20,
+                    "description": "user 或 assistant",
+                },
+                {
+                    "name": "timestamp",
+                    "dtype": DataType.INT64,
+                    "description": "消息时间戳",
+                },
+            ],
+            "description": "历史对话记忆",
+        }
 
-        schema = CollectionSchema(
-            fields=fields,
-            description="历史对话记忆",
-        )
-
-        self.history_collection = Collection(
-            name=collection_name,
-            schema=schema,
-            using=self.conn_alias,
-        )
-
-        # 向量索引
+        # 索引参数
         index_params = {
+            "field_name": "embedding",
             "metric_type": "COSINE",
             "index_type": "IVF_FLAT",
             "params": {"nlist": 64},
         }
-        self.history_collection.create_index(
-            field_name="embedding",
+
+        # 创建 Collection
+        await self.client.create_collection(
+            collection_name=collection_name,
+            schema=schema,
             index_params=index_params,
         )
 
-        # 注意：STL_SORT索引只支持数值字段，VARCHAR字段使用默认索引即可
-        # session_id字段为VARCHAR类型，不需要创建特殊索引
-
-        self.history_collection.load()
         logger.info(f"✅ Created and loaded collection: {collection_name}")
 
     async def search_knowledge(
@@ -215,16 +211,17 @@ class MilvusService:
         Returns:
             检索结果列表，每个结果包含: {text, score, metadata}
         """
-        if not self.knowledge_collection:
-            raise MilvusConnectionError("Knowledge collection not initialized")
+        if not self.client:
+            raise MilvusConnectionError("Milvus client not initialized")
 
-        # 执行向量检索
+        # 执行向量检索（异步）
         search_params = {"metric_type": "COSINE", "params": {"nprobe": 16}}
 
-        results = self.knowledge_collection.search(
+        results = await self.client.search(
+            collection_name=self.knowledge_collection_name,
             data=[query_embedding],
             anns_field="embedding",
-            param=search_params,
+            search_params=search_params,
             limit=top_k,
             output_fields=["text", "metadata", "created_at"],
         )
@@ -232,14 +229,17 @@ class MilvusService:
         # 格式化结果
         filtered_results = []
         threshold = score_threshold or settings.vector_score_threshold
+        
+        # AsyncMilvusClient返回的结果格式略有不同
         for hit in results[0]:
-            similarity_score = 1.0 - (hit.score / 2.0)
+            # COSINE距离转换为相似度：distance范围[-1,1]，相似度=(1+distance)/2
+            similarity_score = 1.0 - (hit["distance"] / 2.0)
             if similarity_score >= threshold:
                 filtered_results.append(
                     {
-                        "text": hit.entity.get("text"),
+                        "text": hit["entity"].get("text"),
                         "score": similarity_score,  # 返回相似度而非距离
-                        "metadata": hit.entity.get("metadata"),
+                        "metadata": hit["entity"].get("metadata"),
                     }
                 )
 
@@ -261,26 +261,30 @@ class MilvusService:
         Returns:
             插入的文档数量
         """
-        if not self.knowledge_collection:
-            raise MilvusConnectionError("Knowledge collection not initialized")
+        if not self.client:
+            raise MilvusConnectionError("Milvus client not initialized")
 
         if not documents:
             return 0
 
-        # 准备数据
-        ids = [doc["id"] for doc in documents]
-        texts = [doc["text"] for doc in documents]
-        embeddings = [doc["embedding"] for doc in documents]
-        metadatas = [doc.get("metadata", {}) for doc in documents]
-        timestamps = [int(time.time())] * len(documents)
+        # 准备数据 - AsyncMilvusClient使用字典列表格式
+        data = []
+        current_time = int(time.time())
+        
+        for doc in documents:
+            data.append({
+                "id": doc["id"],
+                "text": doc["text"],
+                "embedding": doc["embedding"],
+                "metadata": doc.get("metadata", {}),
+                "created_at": current_time,
+            })
 
-        # 插入
-        self.knowledge_collection.insert(
-            [ids, texts, embeddings, metadatas, timestamps]
+        # 异步插入
+        await self.client.insert(
+            collection_name=self.knowledge_collection_name,
+            data=data,
         )
-
-        # 刷新索引
-        self.knowledge_collection.flush()
 
         logger.info(f"📥 Inserted {len(documents)} documents into knowledge base")
         return len(documents)
@@ -300,11 +304,13 @@ class MilvusService:
         Returns:
             对话历史列表，按时间排序
         """
-        if not self.history_collection:
-            raise MilvusConnectionError("History collection not initialized")
+        if not self.client:
+            raise MilvusConnectionError("Milvus client not initialized")
 
-        results = self.history_collection.query(
-            expr=f'session_id == "{session_id}"',
+        # 异步查询
+        results = await self.client.query(
+            collection_name=self.history_collection_name,
+            filter=f'session_id == "{session_id}"',
             output_fields=["text", "role", "timestamp"],
             limit=limit,
         )
@@ -313,17 +319,22 @@ class MilvusService:
         sorted_results = sorted(results, key=lambda x: x["timestamp"])
         return sorted_results
 
-    def health_check(self) -> bool:
+    async def health_check(self) -> bool:
         """
         健康检查
+        
+        通过尝试列出collections来验证Milvus服务器连接状态
 
         Returns:
-            True if connected, False otherwise
+            True if connected and server is responsive, False otherwise
         """
         try:
-            version = utility.get_server_version(using=self.conn_alias)
-            logger.debug(f"Milvus server version: {version}")
-            return version is not None
+            if not self.client:
+                return False
+            
+            # 真正验证Milvus服务器状态：尝试列出collections
+            await self.client.list_collections()
+            return True
         except Exception as e:
             logger.error(f"Milvus health check failed: {e}")
             return False
@@ -331,8 +342,9 @@ class MilvusService:
     async def close(self) -> None:
         """关闭 Milvus 连接"""
         try:
-            connections.disconnect(alias=self.conn_alias)
-            logger.info("✅ Milvus connection closed")
+            if self.client:
+                await self.client.close()
+                logger.info("✅ Milvus connection closed")
         except Exception as e:
             logger.error(f"Error closing Milvus connection: {e}")
 

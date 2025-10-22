@@ -43,14 +43,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"🗄️  Milvus Host: {settings.milvus_host}:{settings.milvus_port}")
     logger.info(f"💾 Redis Host: {settings.redis_host}:{settings.redis_port}")
 
-    # 初始化 Milvus
-    try:
-        from src.services.milvus_service import milvus_service
-        await milvus_service.initialize()
-        logger.info("✅ Milvus initialized successfully")
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize Milvus: {e}")
-        logger.warning("⚠️  Continuing without Milvus (some features will not work)")
+    # 初始化 Milvus（测试环境可通过SKIP_MILVUS_INIT=1跳过）
+    if not __import__("os").environ.get("SKIP_MILVUS_INIT"):
+        try:
+            from src.services.milvus_service import milvus_service
+            await milvus_service.initialize()
+            logger.info("✅ Milvus initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Milvus: {e}")
+            logger.warning("⚠️  Continuing without Milvus (some features will not work)")
+    else:
+        logger.info("⏭️  Skipping Milvus initialization (SKIP_MILVUS_INIT=1)")
 
     # 预编译 LangGraph App
     try:
@@ -121,7 +124,7 @@ app.include_router(knowledge.router, prefix="/api/v1", tags=["Knowledge"])
 @app.get("/api/v1/health", tags=["Health"])
 async def health_check() -> dict:
     """健康检查"""
-    milvus_healthy = milvus_service.health_check()
+    milvus_healthy = await milvus_service.health_check()
 
     return {
         "status": "healthy" if milvus_healthy else "degraded",

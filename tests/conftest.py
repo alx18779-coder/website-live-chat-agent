@@ -37,6 +37,7 @@ os.environ.update({
     "EMBEDDING_MODEL": "text-embedding-ada-002",
     "EMBEDDING_DIM": "1536",
     "LANGGRAPH_CHECKPOINTER": "memory",
+    "SKIP_MILVUS_INIT": "1",  # 测试环境跳过Milvus初始化，避免卡住
 })
 
 
@@ -76,14 +77,14 @@ def mock_milvus_collection(mocker):
 
 
 @pytest.fixture
-async def mock_milvus_service(mock_milvus_collection, mocker):
-    """Mock Milvus 服务"""
+def mock_milvus_service(mock_milvus_collection, mocker):
+    """Mock Milvus 服务（同步fixture，用于e2e测试）"""
     mock = mocker.AsyncMock()
     mock.knowledge_collection = mock_milvus_collection
     mock.history_collection = mock_milvus_collection
-    mock.search.return_value = []
-    mock.insert_documents.return_value = {"success": True, "inserted_count": 1}
-    mock.health_check.return_value = True
+    mock.search_knowledge = mocker.AsyncMock(return_value=[])
+    mock.insert_knowledge = mocker.AsyncMock(return_value=1)
+    mock.health_check = mocker.AsyncMock(return_value=True)
     mock.initialize = mocker.AsyncMock()
     mock.close = mocker.AsyncMock()
     return mock

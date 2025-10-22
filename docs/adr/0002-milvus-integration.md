@@ -1,9 +1,29 @@
 # ADR-0002: Milvus 向量数据库集成设计
 
-**状态**: 已接受  
+**状态**: 已接受（实现已更新）  
 **日期**: 2025-10-13  
 **负责人**: AR (Architect AI)  
 **相关文档**: [Epic-001](../epics/epic-001-langgraph-rag-agent.md), [ADR-0001](./0001-langgraph-architecture.md)
+
+---
+
+> **⚠️ 重要更新 (2025-10-22)**:  
+> 
+> 本文档定义的**Collection schema设计原则和检索策略仍然有效**，但代码实现已升级到pymilvus 2.5.3+异步API。
+> 
+> **变更说明**:
+> - ✅ **Schema设计保持不变**：字段定义、索引配置、数据结构完全一致
+> - ✅ **检索策略保持不变**：向量检索、混合检索、评分阈值等逻辑不变
+> - ⚠️ **API实现已更新**：从同步`Collection` API迁移到异步`AsyncMilvusClient` API
+> - ⚠️ **代码示例已过时**：本文档中的代码示例使用pymilvus 2.4.x同步API，仅供架构理解
+> 
+> **最新实现参见**:
+> - [ADR-0008: Milvus服务异步化重构](./0008-milvus-async-refactor.md) - 记录了API迁移决策和实现细节
+> - [src/services/milvus_service.py](../../src/services/milvus_service.py) - 当前生产代码使用AsyncMilvusClient
+> 
+> **阅读建议**:
+> - 架构设计人员：阅读本文档了解整体设计思路
+> - 开发实现人员：参考ADR-0008和实际代码，**不要直接使用本文档的代码示例**
 
 ---
 
@@ -627,6 +647,8 @@ async def health_check():
 ## 相关决策
 
 - [ADR-0001: LangGraph 架构](./0001-langgraph-architecture.md)
+- [ADR-0008: Milvus服务异步化重构](./0008-milvus-async-refactor.md) - **实现更新**，从pymilvus 2.4.x迁移到2.5.3+异步API
+- [ADR-0004: Milvus索引配置修复](./0004-milvus-index-fix.md)
 - [ADR-0003: 存储架构决策](./0003-storage-architecture.md)（待编写）
 
 ---
@@ -644,4 +666,5 @@ async def health_check():
 | 日期 | 版本 | 变更内容 | 负责人 |
 |------|------|---------|--------|
 | 2025-10-13 | 1.0 | 初始版本，定义 Milvus Collection 和检索策略 | AR AI |
+| 2025-10-22 | 1.1 | 添加实现更新说明，指向ADR-0008异步化重构 | AR AI |
 
