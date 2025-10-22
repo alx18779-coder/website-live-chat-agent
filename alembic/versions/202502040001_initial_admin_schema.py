@@ -113,7 +113,7 @@ def upgrade() -> None:
     op.create_index(
         "idx_audit_logs_created_at",
         "audit_logs",
-        [sa.text("created_at DESC")],
+        ["created_at"],
         unique=False,
     )
     op.create_index(
