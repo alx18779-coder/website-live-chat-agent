@@ -151,22 +151,40 @@ async def test_milvus_health_check_healthy():
     """测试健康检查 - 健康状态"""
     service = MilvusService()
     
-    # Mock client已初始化
+    # Mock client已初始化，list_collections成功
     mock_client = AsyncMock()
+    mock_client.list_collections.return_value = ["knowledge_base", "conversation_history"]
     service.client = mock_client
 
-    is_healthy = service.health_check()
+    is_healthy = await service.health_check()
     assert is_healthy is True
+    mock_client.list_collections.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_milvus_health_check_unhealthy():
     """测试健康检查 - 不健康状态"""
     service = MilvusService()
+    
+    # Mock client未初始化
+    service.client = None
 
-    with patch("pymilvus.connections.has_connection", return_value=False):
-        is_healthy = service.health_check()
-        assert is_healthy is False
+    is_healthy = await service.health_check()
+    assert is_healthy is False
+
+
+@pytest.mark.asyncio
+async def test_milvus_health_check_server_error():
+    """测试健康检查 - 服务器错误"""
+    service = MilvusService()
+    
+    # Mock client初始化，但list_collections失败
+    mock_client = AsyncMock()
+    mock_client.list_collections.side_effect = Exception("Connection refused")
+    service.client = mock_client
+
+    is_healthy = await service.health_check()
+    assert is_healthy is False
 
 
 @pytest.mark.asyncio

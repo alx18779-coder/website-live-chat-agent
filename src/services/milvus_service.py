@@ -319,17 +319,22 @@ class MilvusService:
         sorted_results = sorted(results, key=lambda x: x["timestamp"])
         return sorted_results
 
-    def health_check(self) -> bool:
+    async def health_check(self) -> bool:
         """
         健康检查
+        
+        通过尝试列出collections来验证Milvus服务器连接状态
 
         Returns:
-            True if connected, False otherwise
+            True if connected and server is responsive, False otherwise
         """
         try:
-            # AsyncMilvusClient的health_check需要在异步上下文中调用
-            # 这里简单检查client是否已初始化
-            return self.client is not None
+            if not self.client:
+                return False
+            
+            # 真正验证Milvus服务器状态：尝试列出collections
+            await self.client.list_collections()
+            return True
         except Exception as e:
             logger.error(f"Milvus health check failed: {e}")
             return False

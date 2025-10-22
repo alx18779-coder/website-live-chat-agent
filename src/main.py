@@ -121,7 +121,7 @@ app.include_router(knowledge.router, prefix="/api/v1", tags=["Knowledge"])
 @app.get("/api/v1/health", tags=["Health"])
 async def health_check() -> dict:
     """健康检查"""
-    milvus_healthy = milvus_service.health_check()
+    milvus_healthy = await milvus_service.health_check()
 
     return {
         "status": "healthy" if milvus_healthy else "degraded",
