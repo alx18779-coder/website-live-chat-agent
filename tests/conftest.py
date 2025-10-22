@@ -37,6 +37,7 @@ os.environ.update({
     "EMBEDDING_MODEL": "text-embedding-ada-002",
     "EMBEDDING_DIM": "1536",
     "LANGGRAPH_CHECKPOINTER": "memory",
+    "SKIP_MILVUS_INIT": "1",  # 测试环境跳过Milvus初始化，避免卡住
 })
 
 
