@@ -1,0 +1,11 @@
+{
+  "navigation": {
+    "dashboard": "Dashboard",
+    "knowledgeBase": "Knowledge Base",
+    "conversations": "Conversations",
+    "modelRouting": "Model & Routing",
+    "integrations": "Integrations",
+    "monitoring": "Monitoring & Audit",
+    "settings": "Settings"
+  }
+}
