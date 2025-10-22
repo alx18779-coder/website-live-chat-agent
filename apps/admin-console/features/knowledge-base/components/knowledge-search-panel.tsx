@@ -18,7 +18,14 @@ import {
 } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
-import { searchKnowledge, type KnowledgeSearchResponse } from '@/services/knowledge';
+import {
+  searchKnowledge,
+  type KnowledgeSearchParams,
+  type KnowledgeSearchResponse,
+} from '@/services/knowledge';
+import { createLogger } from '@/services/logger';
+
+const knowledgeSearchLogger = createLogger('knowledge-search');
 
 interface KnowledgeSearchPanelProps {
   onResult?: (response: KnowledgeSearchResponse) => void;
@@ -53,10 +60,29 @@ function highlight(text: string, keyword: string) {
 
 export default function KnowledgeSearchPanel({ onResult }: KnowledgeSearchPanelProps) {
   const [form] = Form.useForm<{ query: string; top_k: number }>();
-  const searchMutation = useMutation({
-    mutationFn: searchKnowledge,
+  const searchMutation = useMutation<KnowledgeSearchResponse, Error, KnowledgeSearchParams>({
+    mutationFn: (params) => searchKnowledge(params),
     onSuccess: (response) => {
+      const topScoreValue = response.results.length ? response.results[0].score : undefined;
+      knowledgeSearchLogger.info('知识检索成功', {
+        query: response.query,
+        totalResults: response.total_results,
+        topScore: topScoreValue,
+      });
+      if (typeof topScoreValue === 'number' && topScoreValue < 0.6) {
+        knowledgeSearchLogger.warn('知识检索结果相似度偏低', {
+          query: response.query,
+          topScore: topScoreValue,
+        });
+      }
       onResult?.(response);
+    },
+    onError: (error, variables) => {
+      knowledgeSearchLogger.error('知识检索失败', {
+        message: error.message,
+        query: variables?.query,
+        topK: variables?.top_k,
+      });
     },
   });
 
@@ -64,6 +90,10 @@ export default function KnowledgeSearchPanel({ onResult }: KnowledgeSearchPanelP
   const topScore = useMemo(() => (results.length ? results[0].score : 0), [results]);
 
   const handleSubmit = (values: { query: string; top_k: number }) => {
+    knowledgeSearchLogger.info('执行知识检索请求', {
+      queryLength: values.query.trim().length,
+      topK: values.top_k,
+    });
     searchMutation.mutate({ query: values.query, top_k: values.top_k });
   };
 

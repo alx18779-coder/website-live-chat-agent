@@ -7,6 +7,7 @@ import {
   Card,
   Form,
   Input,
+  Select,
   message,
   Radio,
   Space,
@@ -23,8 +24,11 @@ import {
   type KnowledgeUploadPayload,
   type KnowledgeUploadResponse,
 } from '@/services/knowledge';
+import { createLogger } from '@/services/logger';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+const knowledgeUploadLogger = createLogger('knowledge-upload');
 
 interface KnowledgeUploadWizardProps {
   onUploaded?: (response: KnowledgeUploadResponse) => void;
@@ -50,17 +54,25 @@ export default function KnowledgeUploadWizard({ onUploaded }: KnowledgeUploadWiz
   const uploadMutation = useMutation({
     mutationFn: (payload: KnowledgeUploadPayload) => uploadKnowledgeDocuments(payload),
     onSuccess: (response) => {
+      knowledgeUploadLogger.info('知识库文档上传成功', {
+        insertedCount: response.inserted_count,
+        collection: response.collection_name,
+      });
       message.success(response.message || '上传成功');
       onUploaded?.(response);
       resetWizard();
     },
     onError: (error: unknown) => {
       const err = error as { message?: string };
+      knowledgeUploadLogger.error('知识库文档上传失败', {
+        message: err?.message ?? '未知错误',
+      });
       message.error(err?.message ?? '上传失败，请稍后重试');
     },
   });
 
   const resetWizard = () => {
+    knowledgeUploadLogger.debug('重置上传向导状态');
     setCurrentStep(0);
     setRawContent('');
     setFileName('');
@@ -69,6 +81,10 @@ export default function KnowledgeUploadWizard({ onUploaded }: KnowledgeUploadWiz
 
   const handleFileSelect = useCallback((file: RcFile) => {
     if (file.size > MAX_FILE_SIZE) {
+      knowledgeUploadLogger.warn('选择的文件超过大小限制', {
+        fileName: file.name,
+        size: file.size,
+      });
       message.error('文件大小超出 10MB 限制');
       return Upload.LIST_IGNORE;
     }
@@ -79,6 +95,11 @@ export default function KnowledgeUploadWizard({ onUploaded }: KnowledgeUploadWiz
       if (typeof content === 'string') {
         setRawContent(content);
         setFileName(file.name);
+        knowledgeUploadLogger.debug('已读取文件内容', {
+          fileName: file.name,
+          size: file.size,
+          contentLength: content.length,
+        });
       }
     };
     reader.readAsText(file);
@@ -139,6 +160,10 @@ export default function KnowledgeUploadWizard({ onUploaded }: KnowledgeUploadWiz
       return;
     }
 
+    knowledgeUploadLogger.info('提交知识库上传任务', {
+      documentCount: submitPayload.documents.length,
+      hasMetadata: Boolean(submitPayload.documents[0]?.metadata),
+    });
     uploadMutation.mutate(submitPayload);
   };
 
