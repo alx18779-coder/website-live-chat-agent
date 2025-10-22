@@ -79,7 +79,11 @@ async def upsert_knowledge(request: KnowledgeUpsertRequest) -> KnowledgeUpsertRe
             else:
                 inserted_count = len(documents_to_insert)
         else:
-            inserted_count = await milvus_service.insert_knowledge(documents_to_insert)
+            # 使用新的Repository
+            from src.repositories import get_knowledge_repository
+            
+            knowledge_repo = get_knowledge_repository()
+            inserted_count = await knowledge_repo.insert(documents_to_insert)
 
         logger.info(f"✅ Successfully inserted {inserted_count} documents")
 
@@ -120,8 +124,11 @@ async def search_knowledge(
         truncated_query = truncate_text_to_tokens(query, max_tokens=512)
         query_embedding = await embeddings.aembed_query(truncated_query)
 
-        # 检索
-        results = await milvus_service.search_knowledge(
+        # 检索（使用新的Repository）
+        from src.repositories import get_knowledge_repository
+        
+        knowledge_repo = get_knowledge_repository()
+        knowledge_results = await knowledge_repo.search(
             query_embedding=query_embedding,
             top_k=top_k,
         )
@@ -129,11 +136,11 @@ async def search_knowledge(
         # 格式化结果
         formatted_results = [
             SearchResult(
-                text=result["text"],
-                score=result["score"],
-                metadata=result.get("metadata", {}),
+                text=result.text,
+                score=result.score,
+                metadata=result.metadata,
             )
-            for result in results
+            for result in knowledge_results
         ]
 
         logger.info(f"✅ Found {len(formatted_results)} results")
