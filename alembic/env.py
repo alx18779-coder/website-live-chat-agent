@@ -15,7 +15,8 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", settings.postgres_sync_dsn)
+# 使用异步 DSN，确保 Alembic 在线迁移时复用 asyncpg 驱动
+config.set_main_option("sqlalchemy.url", settings.postgres_async_dsn)
 
 target_metadata = None
 
