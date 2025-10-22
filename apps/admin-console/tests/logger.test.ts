@@ -71,4 +71,34 @@ describe('logger', () => {
       '2024-01-01T00:00:00.000Z [upload] upload failed',
     );
   });
+
+  it('allows updating log level at runtime', async () => {
+    const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    const { createLogger, setLogLevel } = await loadLoggerModule();
+
+    setLogLevel('DEBUG');
+
+    const runtimeLogger = createLogger('runtime');
+    runtimeLogger.debug('detailed info');
+
+    expect(consoleDebug).toHaveBeenCalledWith(
+      '2024-01-01T00:00:00.000Z [runtime] detailed info',
+    );
+  });
+
+  it('ignores invalid log level updates', async () => {
+    const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    const consoleInfo = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const { logger, setLogLevel } = await loadLoggerModule();
+
+    setLogLevel('verbose');
+
+    logger.debug('should not appear');
+    logger.info('still visible');
+
+    expect(consoleDebug).not.toHaveBeenCalled();
+    expect(consoleInfo).toHaveBeenCalledWith(
+      '2024-01-01T00:00:00.000Z [admin-console] still visible',
+    );
+  });
 });

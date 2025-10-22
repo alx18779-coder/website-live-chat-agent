@@ -39,6 +39,18 @@ const globalConfig: LogConfig = {
   level: resolveLogLevel(),
 };
 
+function normalizeLevel(level: LogLevel | string): LogLevel | undefined {
+  if (isLogLevel(level)) {
+    return level;
+  }
+
+  if (typeof level === 'string' && isLogLevel(level.toLowerCase())) {
+    return level.toLowerCase() as LogLevel;
+  }
+
+  return undefined;
+}
+
 function shouldLog(level: LogLevel) {
   return levelWeight[level] >= levelWeight[globalConfig.level];
 }
@@ -97,6 +109,19 @@ export function createLogger(scope: string): ScopedLogger {
   });
 
   return scoped(scope);
+}
+
+export function setLogLevel(level: LogLevel | string): void {
+  const normalized = normalizeLevel(level);
+  if (!normalized) {
+    return;
+  }
+
+  globalConfig.level = normalized;
+}
+
+export function getLogLevel(): LogLevel {
+  return globalConfig.level;
 }
 
 export const logger = createLogger('admin-console');
