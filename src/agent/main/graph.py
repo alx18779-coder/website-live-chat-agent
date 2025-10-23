@@ -89,18 +89,15 @@ def compile_agent_graph() -> any:
         logger.info("📝 Using AsyncRedisSaver for checkpointing")
         try:
             from langgraph.checkpoint.redis.aio import AsyncRedisSaver
-            import redis.asyncio as redis
 
-            # 创建异步Redis客户端
-            redis_client = redis.Redis(
-                host=settings.redis_host,
-                port=settings.redis_port,
-                password=settings.redis_password if settings.redis_password else None,
-                db=settings.redis_db,
-                decode_responses=False,  # AsyncRedisSaver 需要 bytes
-            )
+            # 构建Redis连接URL
+            redis_url = "redis://"
+            if settings.redis_password:
+                redis_url += f":{settings.redis_password}@"
+            redis_url += f"{settings.redis_host}:{settings.redis_port}/{settings.redis_db}"
 
-            checkpointer = AsyncRedisSaver(redis_client)
+            # 直接使用构造函数初始化（传入redis_url）
+            checkpointer = AsyncRedisSaver(redis_url)
         except ImportError:
             logger.warning("⚠️ langgraph-checkpoint-redis not installed, falling back to MemorySaver")
             checkpointer = MemorySaver()
