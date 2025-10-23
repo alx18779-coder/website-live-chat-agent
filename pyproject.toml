@@ -25,6 +25,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "tiktoken>=0.8.0",
     "fakeredis>=2.32.0",
+    "langgraph-checkpoint-redis>=0.1.2",
 ]
 
 [project.optional-dependencies]
