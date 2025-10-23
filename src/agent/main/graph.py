@@ -99,7 +99,7 @@ def compile_agent_graph() -> any:
                 decode_responses=False,  # RedisSaver 需要 bytes
             )
 
-            checkpointer = RedisSaver(redis_client)
+            checkpointer = RedisSaver(redis_client=redis_client)
         except ImportError:
             logger.warning("⚠️ langgraph-checkpoint-redis not installed, falling back to MemorySaver")
             checkpointer = MemorySaver()
