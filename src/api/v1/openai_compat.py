@@ -510,7 +510,17 @@ async def _stream_response(
         yield "data: [DONE]\n\n"
 
     except Exception as e:
-        logger.error(f"❌ Streaming failed: {e}")
+        import traceback
+        error_details = {
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "error_repr": repr(e),
+            "traceback": traceback.format_exc()
+        }
+        logger.error(
+            f"❌ Streaming failed: {error_details['error_type']}: {error_details['error_message']}\n"
+            f"Traceback:\n{error_details['traceback']}"
+        )
         # 发送错误 chunk
         error_chunk = ChatCompletionChunk(
             id=completion_id,
