@@ -253,3 +253,98 @@ checkpointer = AsyncRedisSaver(redis_client)  # ✅ 支持aget_tuple()
 
 **最终状态**: ✅ Redis checkpointing完全支持同步和异步操作
 
+---
+
+## ⚠️ 第三次修复：使用redis_url参数 (2025-10-23 11:55)
+
+### 问题发现
+
+使用`AsyncRedisSaver(redis_client)`后，出现新错误：
+```
+'Redis' object has no attribute 'decode'
+```
+
+**根本原因**:
+- `redis.asyncio.Redis`客户端与AsyncRedisSaver的内部逻辑不兼容
+- AsyncRedisSaver期望通过连接字符串自行管理Redis客户端
+- 手动传入客户端对象可能导致配置不匹配
+
+### 最终解决方案：使用redis_url参数
+
+**最终修改** (2025-10-23):
+
+```python
+# src/agent/main/graph.py
+# 修改前（传入redis_client对象，导致decode错误）
+import redis.asyncio as redis
+redis_client = redis.Redis(...)
+checkpointer = AsyncRedisSaver(redis_client)  # ❌ 'Redis' object has no attribute 'decode'
+
+# 修改后（直接传入redis_url字符串，官方推荐）
+redis_url = f"redis://{host}:{port}/{db}"  # 构建标准URL
+checkpointer = AsyncRedisSaver(redis_url)  # ✅ 正确！
+```
+
+### AsyncRedisSaver构造函数签名
+
+根据`inspect.signature(AsyncRedisSaver.__init__)`查询：
+```python
+(self, 
+ redis_url: 'Optional[str]' = None,  # ← 第一个位置参数，优先使用
+ *, 
+ redis_client: 'Optional[Union[AsyncRedis, AsyncRedisCluster]]' = None,
+ connection_args: 'Optional[Dict[str, Any]]' = None,
+ ttl: 'Optional[Dict[str, Any]]' = None
+) -> 'None'
+```
+
+**关键要点**:
+- `redis_url`: **第一个位置参数**，传入标准Redis连接字符串
+- `redis_client`: keyword-only参数，仅在特殊场景下使用
+- **推荐**: 使用`redis_url`，让AsyncRedisSaver内部管理连接
+
+### Redis URL格式
+
+```python
+# 无密码
+redis_url = "redis://localhost:6379/0"
+
+# 有密码
+redis_url = "redis://:password@localhost:6379/0"
+
+# 完整格式
+redis_url = "redis://[user]:password@host:port/db"
+```
+
+### 测试更新
+
+`tests/unit/agent/test_graph.py` 再次更新：
+- 移除redis客户端的mock
+- 验证`AsyncRedisSaver("redis://localhost:6379/0")`调用
+
+### 验收标准（最终）
+
+- [x] **LD完成**: 使用`redis_url`参数初始化AsyncRedisSaver
+- [x] **LD完成**: 构建标准Redis URL格式
+- [ ] **QA验证**: 应用启动无"'Redis' object has no attribute 'decode'"错误
+- [ ] **QA验证**: Streaming功能正常
+- [ ] **QA验证**: Redis会话持久化正常
+
+---
+
+### 完整修复路径总结
+
+**Phase 1 (原始Issue #66)**:
+- 问题: `AttributeError: 'Redis' object has no attribute 'startswith'`
+- 修复: `RedisSaver(redis_client=redis_client)` (关键字参数)
+
+**Phase 2 (Streaming支持)**:
+- 问题: `NotImplementedError` at `aget_tuple()`
+- 修复: 升级到`AsyncRedisSaver`
+
+**Phase 3 (正确初始化)**:
+- 问题: `'Redis' object has no attribute 'decode'`
+- 修复: `AsyncRedisSaver(redis_url)` (使用连接字符串)
+
+**最终方案**: ✅ `AsyncRedisSaver("redis://host:port/db")`
+
