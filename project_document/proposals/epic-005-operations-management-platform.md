@@ -1347,7 +1347,7 @@ if __name__ == "__main__":
 
 **评审状态**: ✅ 已完成  
 **评审时间**: 2025-10-24  
-**GitHub Issue**: [#69](https://github.com/alx18779-coder/website-live-chat-agent/issues/69)
+**GitHub Issue**: [#68](https://github.com/alx18779-coder/website-live-chat-agent/issues/68)
 
 #### 架构决策总结
 - **选定方案**: 方案C（平衡策略）- 前后端分离的管理平台架构
