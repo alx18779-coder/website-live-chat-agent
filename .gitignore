@@ -68,3 +68,10 @@ Thumbs.db
 *.tmp
 *.temp
 
+# 前端构建产物
+admin-frontend/dist/
+admin-frontend/node_modules/
+
+# Playwright MCP 临时文件
+.playwright-mcp/
+
