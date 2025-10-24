@@ -28,7 +28,10 @@ async def verify_admin_token(
     admin_security: AdminSecurity = Depends(get_admin_security)
 ) -> dict:
     """
-    验证管理员 JWT token
+    验证管理员 JWT 访问令牌
+    
+    仅接受访问令牌（access token），拒绝刷新令牌（refresh token）。
+    刷新令牌应仅用于 /auth/refresh 端点获取新的访问令牌。
     
     Args:
         credentials: HTTP Bearer 认证凭据
@@ -47,6 +50,15 @@ async def verify_admin_token(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="无效的认证令牌",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 检查 token 类型，拒绝刷新令牌
+    token_type = payload.get("type")
+    if token_type != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="无效的令牌类型，请使用访问令牌",
             headers={"WWW-Authenticate": "Bearer"},
         )
     

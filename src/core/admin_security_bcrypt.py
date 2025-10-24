@@ -81,7 +81,7 @@ class AdminSecurity:
         """
         to_encode = data.copy()
         expire = datetime.utcnow() + timedelta(minutes=self.expire_minutes)
-        to_encode.update({"exp": expire})
+        to_encode.update({"exp": expire, "type": "access"})
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
     
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
