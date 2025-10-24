@@ -7,18 +7,30 @@ Milvus Repository基类
 import logging
 from typing import Any, Generic, Type, TypeVar
 
-from pymilvus import AsyncMilvusClient
+from pymilvus import AsyncMilvusClient, CollectionSchema, FieldSchema, DataType
+from pymilvus.milvus_client.index import IndexParams
 
 from src.core.config import settings
 from src.core.exceptions import MilvusConnectionError
 from src.models.schemas.base import BaseCollectionSchema
 from src.repositories.base import BaseRepository
+from src.services.milvus_service import milvus_service
 
 logger = logging.getLogger(__name__)
 
 # 泛型类型变量
 T = TypeVar("T")
 S = TypeVar("S", bound=BaseCollectionSchema)
+
+
+async def get_milvus_client() -> AsyncMilvusClient:
+    """
+    获取 Milvus 客户端实例
+    
+    Returns:
+        AsyncMilvusClient: Milvus 异步客户端
+    """
+    return milvus_service.client
 
 
 class BaseMilvusRepository(BaseRepository[T], Generic[T, S]):
@@ -46,7 +58,7 @@ class BaseMilvusRepository(BaseRepository[T], Generic[T, S]):
     
     async def initialize(self) -> None:
         """
-        初始化Collection（如果不存在则创建）
+        初始化Collection（如果不存在则创建，并确保已加载）
         
         Raises:
             MilvusConnectionError: Collection创建失败
@@ -56,20 +68,60 @@ class BaseMilvusRepository(BaseRepository[T], Generic[T, S]):
             has_collection = await self.client.has_collection(self.collection_name)
             if has_collection:
                 logger.info(f"📂 Collection '{self.collection_name}' already exists")
+                # 确保Collection已加载到内存
+                await self.client.load_collection(self.collection_name)
+                logger.info(f"✅ Collection '{self.collection_name}' loaded")
                 return
             
-            # 获取Schema和索引配置
-            schema = self.schema_class.get_milvus_schema()
-            index_params = self.schema_class.get_index_params()
+            # 获取Schema配置（字典格式）
+            schema_dict = self.schema_class.get_milvus_schema()
+            index_params_dict = self.schema_class.get_index_params()
             
-            # 创建Collection（AsyncMilvusClient使用字典格式）
+            # 将字典格式的schema转换为CollectionSchema对象
+            fields = []
+            for field_dict in schema_dict["fields"]:
+                # 提取字段参数
+                field_kwargs = {
+                    "name": field_dict["name"],
+                    "dtype": field_dict["dtype"],
+                }
+                
+                # 添加可选参数
+                if "description" in field_dict:
+                    field_kwargs["description"] = field_dict["description"]
+                if "max_length" in field_dict:
+                    field_kwargs["max_length"] = field_dict["max_length"]
+                if "dim" in field_dict:
+                    field_kwargs["dim"] = field_dict["dim"]
+                if "is_primary" in field_dict:
+                    field_kwargs["is_primary"] = field_dict["is_primary"]
+                
+                fields.append(FieldSchema(**field_kwargs))
+            
+            # 创建CollectionSchema对象
+            schema = CollectionSchema(
+                fields=fields,
+                description=schema_dict.get("description", ""),
+                enable_dynamic_field=schema_dict.get("enable_dynamic_field", False)
+            )
+            
+            # 将字典格式的index_params转换为IndexParams对象
+            index_params = IndexParams()
+            index_params.add_index(
+                field_name=index_params_dict["field_name"],
+                index_type=index_params_dict["index_type"],
+                metric_type=index_params_dict["metric_type"],
+                params=index_params_dict.get("params", {}),
+            )
+            
+            # 创建Collection（AsyncMilvusClient会自动加载）
             await self.client.create_collection(
                 collection_name=self.collection_name,
                 schema=schema,
                 index_params=index_params,
             )
             
-            logger.info(f"✅ Created collection: {self.collection_name}")
+            logger.info(f"✅ Created and loaded collection: {self.collection_name}")
             
         except Exception as e:
             logger.error(f"❌ Failed to initialize collection {self.collection_name}: {e}")
