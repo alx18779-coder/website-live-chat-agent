@@ -7,7 +7,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from src.core.admin_security import AdminSecurity
+from src.core.admin_security_bcrypt import AdminSecurity
 from src.core.config import get_settings
 
 # HTTP Bearer 认证方案
