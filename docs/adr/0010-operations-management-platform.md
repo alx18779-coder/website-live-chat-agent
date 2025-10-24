@@ -224,6 +224,229 @@
 
 ---
 
+## 体系结构视图
+
+### 部署拓扑图
+![运营管理平台架构图](../architecture/operations-management-platform-architecture.drawio)
+
+**架构组件说明**：
+- **前端层**：Nginx反向代理 + Vue 3管理界面
+- **API层**：FastAPI管理API + 主API（/v1/*）
+- **数据层**：Redis（会话缓存）+ PostgreSQL（对话历史）+ Milvus（向量检索）
+- **数据流**：管理员 → Nginx → 前端 → 管理API → PostgreSQL/Milvus
+
+### 数据同步流程图
+![数据同步流程图](../architecture/data-sync-flow.drawio)
+
+**数据流说明**：
+1. **用户对话** → LangGraph Agent → Redis（会话状态）
+2. **异步同步**：Redis → 同步服务 → PostgreSQL（对话历史）
+3. **管理查询**：管理界面 → PostgreSQL（历史查询）
+4. **监控告警**：同步服务 → 监控系统（状态跟踪）
+
+### 关键数据流
+- **实时流**：用户对话 → Redis → 异步同步 → PostgreSQL
+- **查询流**：管理界面 → 管理API → PostgreSQL/Milvus
+- **监控流**：同步服务 → 监控系统 → 告警通知
+
+---
+
+## 契约/接口变更声明
+
+### 新增API接口
+
+#### 管理认证接口
+```yaml
+/api/admin/auth/login:
+  POST:
+    request: { username: string, password: string }
+    response: { access_token: string, token_type: "bearer", expires_in: number }
+
+/api/admin/auth/refresh:
+  POST:
+    request: { refresh_token: string }
+    response: { access_token: string, expires_in: number }
+```
+
+#### 知识库管理接口
+```yaml
+/api/admin/knowledge/documents:
+  GET: # 分页查询文档列表
+  POST: # 创建新文档
+  
+/api/admin/knowledge/documents/{doc_id}:
+  GET: # 获取文档详情
+  PUT: # 更新文档
+  DELETE: # 删除文档
+```
+
+#### 对话监控接口
+```yaml
+/api/admin/conversations/history:
+  GET: # 查询历史会话列表
+  
+/api/admin/conversations/{session_id}:
+  GET: # 获取会话详情
+```
+
+#### 统计报表接口
+```yaml
+/api/admin/analytics/overview:
+  GET: # 获取总览统计
+  
+/api/admin/analytics/trends:
+  GET: # 获取趋势分析
+```
+
+#### 系统配置接口
+```yaml
+/api/admin/settings:
+  GET: # 获取系统配置（脱敏）
+  
+/api/admin/settings/health:
+  GET: # 系统健康检查
+```
+
+#### 数据同步接口
+```yaml
+/api/admin/sync/status:
+  GET: # 同步状态查询
+  
+/api/admin/sync/metrics:
+  GET: # 同步指标统计
+  
+/api/admin/sync/repair:
+  POST: # 手动修复不一致数据
+```
+
+### 配置文件变更
+
+#### 环境变量新增
+```bash
+# 管理员认证
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your_secure_password
+JWT_SECRET_KEY=your_jwt_secret_key
+JWT_EXPIRE_MINUTES=60
+
+# PostgreSQL配置
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=chat_agent_admin
+POSTGRES_USER=admin
+POSTGRES_PASSWORD=your_postgres_password
+```
+
+#### Docker Compose新增服务
+```yaml
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  admin-frontend:
+    build: ./admin-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_BASE_URL=http://chat-agent:8000/api/admin
+```
+
+### 监控端点新增
+
+#### 健康检查端点
+```yaml
+/api/admin/health:
+  GET:
+    response: {
+      status: "healthy" | "degraded",
+      services: {
+        milvus: { status: "healthy" | "unhealthy" },
+        redis: { status: "healthy" | "unhealthy" },
+        postgres: { status: "healthy" | "unhealthy" }
+      }
+    }
+```
+
+#### 指标监控端点
+```yaml
+/api/admin/metrics:
+  GET:
+    response: {
+      sync_success_rate: number,
+      sync_latency_ms: number,
+      api_response_time_ms: number,
+      active_sessions: number
+    }
+```
+
+### 事件总线变更
+
+#### 新增事件类型
+```typescript
+// 数据同步事件
+interface SyncEvent {
+  type: 'conversation_synced' | 'sync_failed' | 'sync_repaired';
+  session_id: string;
+  timestamp: number;
+  success: boolean;
+  error?: string;
+}
+
+// 管理操作事件
+interface AdminActionEvent {
+  type: 'admin_login' | 'document_created' | 'document_updated' | 'document_deleted';
+  admin_user: string;
+  resource_id?: string;
+  timestamp: number;
+}
+```
+
+### 数据库Schema变更
+
+#### PostgreSQL新增表
+```sql
+-- 对话历史表
+CREATE TABLE conversation_history (
+    id UUID PRIMARY KEY,
+    session_id VARCHAR(64) NOT NULL,
+    user_message TEXT,
+    ai_response TEXT,
+    retrieved_docs JSONB,
+    confidence_score FLOAT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 管理操作审计表
+CREATE TABLE admin_audit_log (
+    id UUID PRIMARY KEY,
+    admin_user VARCHAR(64) NOT NULL,
+    action VARCHAR(64) NOT NULL,
+    resource_type VARCHAR(64),
+    resource_id UUID,
+    details JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### 责任人分配
+
+| 变更类型 | 责任人 | 交付物 | 完成时间 |
+|---------|--------|--------|----------|
+| API接口设计 | LD | OpenAPI规范 | Day 3 |
+| 数据库Schema | LD | Alembic迁移脚本 | Day 2 |
+| 前端接口调用 | LD | API客户端封装 | Day 6 |
+| 监控端点实现 | LD | 健康检查API | Day 4 |
+| 配置文件更新 | LD | 环境变量文档 | Day 2 |
+| 部署配置 | LD | Docker Compose更新 | Day 8 |
+
+---
+
 ## 相关决策
 
 - [ADR-0001: LangGraph架构](./0001-langgraph-architecture.md) - 保持Agent工作流不变
