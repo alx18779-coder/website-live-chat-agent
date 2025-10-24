@@ -7,7 +7,6 @@
 import os
 import tempfile
 import uuid
-import magic
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, File, UploadFile, Form, BackgroundTasks
@@ -628,37 +627,53 @@ async def preview_file(
 
 
 def _detect_file_type(file_content: bytes, filename: str) -> str:
-    """检测文件类型"""
+    """
+    检测文件类型
+    
+    优先使用 python-magic 检测 MIME 类型（如果可用），
+    否则回退到基于文件扩展名的检测。
+    
+    Args:
+        file_content: 文件内容
+        filename: 文件名
+        
+    Returns:
+        str: 文件类型 ('pdf', 'markdown', 'txt')
+        
+    Raises:
+        ValueError: 不支持的文件类型
+    """
+    # 支持的文件类型映射
+    mime_type_mapping = {
+        'application/pdf': 'pdf',
+        'text/markdown': 'markdown',
+        'text/plain': 'txt',
+        'text/x-markdown': 'markdown'
+    }
+    
+    # 尝试使用 python-magic 检测 MIME 类型（惰性导入）
     try:
-        # 使用 python-magic 检测 MIME 类型
+        import magic  # 惰性导入，避免顶层导入导致应用启动失败
         mime_type = magic.from_buffer(file_content, mime=True)
         
-        # 支持的文件类型映射
-        supported_types = {
-            'application/pdf': 'pdf',
-            'text/markdown': 'markdown',
-            'text/plain': 'txt',
-            'text/x-markdown': 'markdown'
-        }
-        
-        if mime_type in supported_types:
-            return supported_types[mime_type]
-        
-        # 根据文件扩展名判断
-        ext = filename.lower().split('.')[-1] if '.' in filename else ''
-        if ext in ['pdf']:
-            return 'pdf'
-        elif ext in ['md', 'markdown']:
-            return 'markdown'
-        elif ext in ['txt', 'text']:
-            return 'txt'
-        
-        # MIME 类型不支持，且扩展名也不支持
-        raise ValueError(f"不支持的文件类型: {mime_type}")
-        
-    except ValueError as e:
-        # 重新抛出 ValueError（不支持的文件类型）
-        raise e
-    except Exception as e:
-        # 其他异常（如 magic 检测失败）抛出通用错误
-        raise ValueError(f"无法识别文件类型: {filename}")
+        if mime_type in mime_type_mapping:
+            return mime_type_mapping[mime_type]
+    except (ImportError, Exception):
+        # python-magic 不可用或检测失败，回退到扩展名检测
+        pass
+    
+    # 基于文件扩展名检测
+    ext = filename.lower().split('.')[-1] if '.' in filename else ''
+    ext_mapping = {
+        'pdf': 'pdf',
+        'md': 'markdown',
+        'markdown': 'markdown',
+        'txt': 'txt',
+        'text': 'txt'
+    }
+    
+    if ext in ext_mapping:
+        return ext_mapping[ext]
+    
+    # 不支持的文件类型
+    raise ValueError(f"不支持的文件类型: {filename} (扩展名: {ext})")
