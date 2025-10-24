@@ -7,7 +7,6 @@
 import logging
 import re
 from typing import Dict, List, Optional, Tuple
-import magic
 import markdown
 from pypdf import PdfReader
 from io import BytesIO
@@ -85,29 +84,49 @@ class FileParser:
             raise
     
     def _detect_file_type(self, file_content: bytes, filename: str) -> str:
-        """检测文件类型"""
+        """
+        检测文件类型
+        
+        优先使用 python-magic 检测 MIME 类型（如果可用），
+        否则回退到基于文件扩展名的检测。
+        
+        Args:
+            file_content: 文件内容
+            filename: 文件名
+            
+        Returns:
+            str: 文件类型 ('pdf', 'markdown', 'txt')
+            
+        Raises:
+            ValueError: 不支持的文件类型
+        """
+        # 尝试使用 python-magic 检测 MIME 类型（惰性导入）
         try:
-            # 使用 python-magic 检测 MIME 类型
+            import magic  # 惰性导入，避免顶层导入导致模块加载失败
             mime_type = magic.from_buffer(file_content, mime=True)
             
             # 检查是否支持
             if mime_type in self.SUPPORTED_TYPES:
                 return self.SUPPORTED_TYPES[mime_type]
-            
-            # 根据文件扩展名判断
-            ext = filename.lower().split('.')[-1] if '.' in filename else ''
-            if ext in ['pdf']:
-                return 'pdf'
-            elif ext in ['md', 'markdown']:
-                return 'markdown'
-            elif ext in ['txt', 'text']:
-                return 'txt'
-            
-            raise ValueError(f"不支持的文件类型: {mime_type}")
-            
-        except Exception as e:
-            logger.error(f"文件类型检测失败: {e}")
-            raise ValueError(f"无法识别文件类型: {filename}")
+        except (ImportError, Exception) as e:
+            # python-magic 不可用或检测失败，回退到扩展名检测
+            logger.debug(f"python-magic 检测失败，回退到扩展名检测: {e}")
+        
+        # 基于文件扩展名检测
+        ext = filename.lower().split('.')[-1] if '.' in filename else ''
+        ext_mapping = {
+            'pdf': 'pdf',
+            'md': 'markdown',
+            'markdown': 'markdown',
+            'txt': 'txt',
+            'text': 'txt'
+        }
+        
+        if ext in ext_mapping:
+            return ext_mapping[ext]
+        
+        # 不支持的文件类型
+        raise ValueError(f"不支持的文件类型: {filename} (扩展名: {ext})")
     
     async def _parse_pdf(self, file_content: bytes) -> str:
         """解析 PDF 文件"""

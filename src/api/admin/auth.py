@@ -57,27 +57,32 @@ async def login(
     
     # 从数据库查询管理员账户
     db_service = DatabaseService(settings.postgres_url)
-    async with db_service.get_session() as session:
-        from sqlalchemy import select
-        result = await session.execute(
-            select(AdminUser).where(AdminUser.username == request.username)
-        )
-        admin_user = result.scalar_one_or_none()
-        
-        if not admin_user or not admin_user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="用户名或密码错误",
-                headers={"WWW-Authenticate": "Bearer"},
+    try:
+        async with db_service.get_session() as session:
+            from sqlalchemy import select
+            result = await session.execute(
+                select(AdminUser).where(AdminUser.username == request.username)
             )
-        
-        # 验证密码
-        if not admin_security.verify_password(request.password, admin_user.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="用户名或密码错误",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+            admin_user = result.scalar_one_or_none()
+            
+            # 验证用户存在且账户状态为激活（'Y'）
+            if not admin_user or admin_user.is_active != "Y":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="用户名或密码错误",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
+            # 验证密码
+            if not admin_security.verify_password(request.password, admin_user.password_hash):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="用户名或密码错误",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+    finally:
+        # 确保数据库引擎被正确释放，避免连接泄漏
+        await db_service.engine.dispose()
     
     # 生成访问令牌和刷新令牌
     token_data = {
