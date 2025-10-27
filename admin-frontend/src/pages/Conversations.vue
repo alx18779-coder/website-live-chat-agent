@@ -218,7 +218,7 @@ const columns: DataTableColumns<Conversation> = [
     render: (row) => h(
       NText,
       { code: true, style: { fontSize: '12px' } },
-      { default: () => row.session_id.substring(0, 16) + '...' }
+      { default: () => row.session_id }
     )
   },
   {
