@@ -27,5 +27,5 @@
 - 支持可选字段（retrieved_docs, confidence_score）
 
 ## PR
-- 待创建：https://github.com/owner/repo/pull/XXX
+- PR #73: https://github.com/alx18779-coder/website-live-chat-agent/pull/73
 
