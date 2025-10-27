@@ -19,6 +19,9 @@
 - `src/core/session_manager.py` (新建, +245)
 - `src/api/v1/openai_compat.py` (+17 -1)
 - `src/models/openai_schema.py` (+1) - 添加 session_id 字段
+- `src/agent/main/graph.py` (+1) - 简化 AsyncRedisSaver 创建
+- `src/main.py` (+11) - 应用启动时自动初始化 Redis 索引
+- `scripts/init_redis_checkpointer.py` (新建, +125) - Redis 索引初始化脚本
 - `tests/unit/core/test_session_manager.py` (新建, +230)
 
 ## 测试结果
@@ -31,6 +34,12 @@
 - Redis Key 格式：`session:mapping:{fingerprint}`
 - 错误处理：Redis 失败时回退到生成新 session_id
 - 单例模式：使用全局 SessionManager 实例
+
+## 额外修复
+- 添加 `session_id` 字段到 ChatCompletionRequest schema
+- 修复 Redis checkpointer 索引初始化问题
+- 应用启动时自动调用 `checkpointer.setup()` 创建索引
+- 提供独立的初始化脚本用于手动索引创建
 
 ## PR
 - PR #75: https://github.com/alx18779-coder/website-live-chat-agent/pull/75
