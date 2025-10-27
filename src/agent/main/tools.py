@@ -11,7 +11,6 @@ from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
 from src.services.llm_factory import create_embeddings
-from src.services.milvus_service import milvus_service
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +63,7 @@ async def knowledge_search_tool(query: str, top_k: int = 3) -> str:
 
         # 检索知识库（使用新的Repository）
         from src.repositories import get_knowledge_repository
-        
+
         knowledge_repo = get_knowledge_repository()
         knowledge_results = await knowledge_repo.search(
             query_embedding=query_embedding,
@@ -109,7 +108,7 @@ async def history_search_tool(query: str, session_id: str, top_k: int = 2) -> st
     try:
         # 获取会话历史（使用新的Repository）
         from src.repositories import get_history_repository
-        
+
         history_repo = get_history_repository()
         history_results = await history_repo.search_by_session(
             session_id=session_id,
@@ -166,7 +165,7 @@ async def search_knowledge_for_agent(query: str, top_k: int = 3) -> list[dict[st
 
         # 使用新的Repository
         from src.repositories import get_knowledge_repository
-        
+
         knowledge_repo = get_knowledge_repository()
         knowledge_results = await knowledge_repo.search(
             query_embedding=query_embedding,
@@ -174,7 +173,7 @@ async def search_knowledge_for_agent(query: str, top_k: int = 3) -> list[dict[st
         )
 
         logger.info(f"🔍 Retrieved {len(knowledge_results)} documents for: {query}")
-        
+
         # 转换为dict格式以保持向后兼容
         return [
             {

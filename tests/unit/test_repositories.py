@@ -4,13 +4,14 @@ Repository层单元测试
 测试KnowledgeRepository和HistoryRepository的核心功能。
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from src.models.entities.knowledge import Knowledge
+import pytest
+
 from src.models.entities.history import ConversationHistory
-from src.repositories.milvus.knowledge_repository import KnowledgeRepository
+from src.models.entities.knowledge import Knowledge
 from src.repositories.milvus.history_repository import HistoryRepository
+from src.repositories.milvus.knowledge_repository import KnowledgeRepository
 
 
 class TestKnowledgeRepository:

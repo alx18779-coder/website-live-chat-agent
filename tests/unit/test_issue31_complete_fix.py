@@ -17,7 +17,7 @@ class TestIssue31CompleteFix:
     async def test_search_knowledge_for_agent_token_truncation(self):
         """测试search_knowledge_for_agent函数的token截断"""
         from src.models.entities.knowledge import Knowledge
-        
+
         # 模拟长查询文本（超过512 tokens）
         long_query = "这是一个非常长的查询文本，" * 100  # 确保超过512 tokens
 
@@ -58,7 +58,7 @@ class TestIssue31CompleteFix:
     async def test_search_knowledge_api_token_truncation(self):
         """测试search_knowledge API函数的token截断"""
         from src.models.entities.knowledge import Knowledge
-        
+
         # 模拟长查询文本
         long_query = "这是一个非常长的查询文本，" * 100
 
@@ -96,7 +96,7 @@ class TestIssue31CompleteFix:
     async def test_short_query_no_truncation(self):
         """测试短查询不会被截断"""
         from src.models.entities.knowledge import Knowledge
-        
+
         short_query = "短查询"
 
         mock_embeddings = AsyncMock()

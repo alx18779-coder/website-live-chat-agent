@@ -10,15 +10,15 @@ import pytest
 
 from src.core.config import Settings
 from src.services.providers import create_provider, get_provider, list_providers, register_provider
+from src.services.providers.customize_provider import (
+    CustomizeEmbeddingProvider,
+    CustomizeLLMProvider,
+)
 from src.services.providers.deepseek_provider import DeepSeekLLMProvider
 from src.services.providers.openai_provider import OpenAIEmbeddingProvider, OpenAILLMProvider
 from src.services.providers.siliconflow_provider import (
     SiliconFlowEmbeddingProvider,
     SiliconFlowLLMProvider,
-)
-from src.services.providers.customize_provider import (
-    CustomizeLLMProvider,
-    CustomizeEmbeddingProvider,
 )
 
 

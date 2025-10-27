@@ -16,6 +16,8 @@ from langchain_core.messages import AIMessage, HumanMessage
 from src.agent.main.graph import get_agent_app
 from src.core.config import settings
 from src.core.security import verify_api_key
+from src.db.base import DatabaseService
+from src.db.dependencies import get_db_service
 from src.models.openai_schema import (
     ChatCompletionChoice,
     ChatCompletionChunk,
@@ -150,6 +152,7 @@ async def list_models() -> OpenAIModelList:
 async def chat_completions(
     request: ChatCompletionRequest,
     http_request: Request,
+    db_service: "DatabaseService" = Depends(get_db_service),
 ) -> ChatCompletionResponse | StreamingResponse:
     """
     OpenAI 兼容的 Chat Completions 端点
@@ -237,6 +240,7 @@ async def chat_completions(
                 created_timestamp=created_timestamp,
                 model=request.model,
                 requested_model=requested_model,
+                db_service=db_service,
             ),
             media_type="text/event-stream",
         )
@@ -249,6 +253,7 @@ async def chat_completions(
         created_timestamp=created_timestamp,
         model=request.model,
         requested_model=requested_model,
+        db_service=db_service,
     )
 
 
@@ -259,6 +264,7 @@ async def _non_stream_response(
     created_timestamp: int,
     model: str,
     requested_model: str,
+    db_service: DatabaseService,
 ) -> ChatCompletionResponse:
     """非流式响应"""
     from src.agent.main.nodes import _get_filter_reason, _is_valid_user_query
@@ -335,13 +341,9 @@ async def _non_stream_response(
         # === 新增：异步保存对话到 PostgreSQL ===
         # 异步保存对话历史（不阻塞响应）
         try:
-            from src.db.base import DatabaseService
             from src.db.repositories.conversation_repository import ConversationRepository
 
-            # 获取数据库服务实例
-            db_service = DatabaseService(settings.postgres_url)
-
-            # 使用上下文管理器确保连接正确关闭
+            # 使用全局 DatabaseService（通过依赖注入）
             async with db_service.get_session() as db_session:
                 repo = ConversationRepository(db_session)
 
@@ -424,6 +426,7 @@ async def _stream_response(
     created_timestamp: int,
     model: str,
     requested_model: str,
+    db_service: DatabaseService,
 ) -> AsyncGenerator[str, None]:
     """流式响应（SSE）"""
     from src.agent.main.nodes import _is_valid_user_query
@@ -590,11 +593,9 @@ async def _stream_response(
         # === 新增：流式响应完成后保存对话 ===
         if collected_response:
             try:
-                from src.db.base import DatabaseService
                 from src.db.repositories.conversation_repository import ConversationRepository
 
-                db_service = DatabaseService(settings.postgres_url)
-
+                # 使用全局 DatabaseService（通过依赖注入）
                 async with db_service.get_session() as db_session:
                     repo = ConversationRepository(db_session)
 

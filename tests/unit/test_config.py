@@ -30,10 +30,10 @@ def test_settings_default_values(monkeypatch, tmp_path):
     monkeypatch.delenv("VECTOR_SCORE_THRESHOLD", raising=False)
     monkeypatch.delenv("VECTOR_TOP_K", raising=False)
     monkeypatch.delenv("LLM_TEMPERATURE", raising=False)
-    
+
     # 切换到临时目录，避免加载项目根目录的.env文件
     monkeypatch.chdir(tmp_path)
-    
+
     settings = Settings()
 
     assert settings.llm_temperature == 0.7

@@ -8,7 +8,6 @@ import logging
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_openai import ChatOpenAI
 
 from src.core.config import settings
 from src.core.exceptions import ConfigurationError

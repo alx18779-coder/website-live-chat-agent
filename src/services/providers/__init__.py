@@ -7,10 +7,11 @@
 from typing import Any, Dict, Type
 
 from .base import EmbeddingProvider, LLMProvider, ModelProvider
+from .customize_provider import CustomizeEmbeddingProvider, CustomizeLLMProvider
 from .deepseek_provider import DeepSeekEmbeddingProvider, DeepSeekLLMProvider
 from .openai_provider import OpenAIEmbeddingProvider, OpenAILLMProvider
 from .siliconflow_provider import SiliconFlowEmbeddingProvider, SiliconFlowLLMProvider
-from .customize_provider import CustomizeLLMProvider, CustomizeEmbeddingProvider
+
 # 提供商注册表
 _PROVIDER_REGISTRY: Dict[str, Type[ModelProvider]] = {
     # OpenAI 提供商

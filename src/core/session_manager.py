@@ -60,7 +60,7 @@ class SessionManager:
         """
         if self._redis_client is None:
             try:
-                self._redis_client = await redis.from_url(
+                self._redis_client = redis.from_url(
                     self._redis_url,
                     encoding="utf-8",
                     decode_responses=True,

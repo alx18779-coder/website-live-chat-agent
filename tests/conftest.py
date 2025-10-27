@@ -96,8 +96,7 @@ def mock_milvus_service(mock_milvus_collection, mocker):
 @pytest.fixture
 def mock_knowledge_repository(mocker):
     """Mock KnowledgeRepository（用于e2e测试）"""
-    from src.models.entities.knowledge import Knowledge
-    
+
     mock = mocker.AsyncMock()
     mock.search = mocker.AsyncMock(return_value=[])
     mock.insert = mocker.AsyncMock(return_value=0)
@@ -108,8 +107,7 @@ def mock_knowledge_repository(mocker):
 @pytest.fixture
 def mock_history_repository(mocker):
     """Mock HistoryRepository（用于e2e测试）"""
-    from src.models.entities.history import ConversationHistory
-    
+
     mock = mocker.AsyncMock()
     mock.search = mocker.AsyncMock(return_value=[])
     mock.search_by_session = mocker.AsyncMock(return_value=[])

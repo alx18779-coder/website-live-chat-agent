@@ -2,8 +2,9 @@
 LangGraph应用构建和配置的单元测试
 """
 
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestLangGraphCheckpointerInitialization:
