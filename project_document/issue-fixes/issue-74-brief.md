@@ -16,13 +16,20 @@
 4. 向后兼容：客户端提供 session_id 时直接使用
 
 ## 影响文件
+
+### 后端
 - `src/core/session_manager.py` (新建, +245)
 - `src/api/v1/openai_compat.py` (+17 -1)
 - `src/models/openai_schema.py` (+1) - 添加 session_id 字段
 - `src/agent/main/graph.py` (+1) - 简化 AsyncRedisSaver 创建
 - `src/main.py` (+11) - 应用启动时自动初始化 Redis 索引
 - `scripts/init_redis_checkpointer.py` (新建, +125) - Redis 索引初始化脚本
+- `scripts/verify_conversation_monitoring.py` (新建, +120) - 对话监控验证脚本
 - `tests/unit/core/test_session_manager.py` (新建, +230)
+
+### 前端
+- `admin-frontend/src/pages/Conversations.vue` (重写, +390 -23) - 完整的对话监控界面
+- `admin-frontend/src/api/conversations.ts` (+1) - 增强数据格式容错性
 
 ## 测试结果
 - ✅ 13/13 session_manager tests passed
@@ -36,10 +43,26 @@
 - 单例模式：使用全局 SessionManager 实例
 
 ## 额外修复
+
+### Schema 修复
 - 添加 `session_id` 字段到 ChatCompletionRequest schema
+
+### Redis Checkpointer
 - 修复 Redis checkpointer 索引初始化问题
 - 应用启动时自动调用 `checkpointer.setup()` 创建索引
 - 提供独立的初始化脚本用于手动索引创建
+
+### 前端对话监控界面（全新实现）
+- ✅ 完整的对话列表展示（分页、排序）
+- ✅ 时间范围筛选功能
+- ✅ 对话详情查看对话框
+- ✅ 用户消息和 AI 回复展示
+- ✅ 置信度评分显示（带颜色标识）
+- ✅ 检索文档详情展示（支持折叠）
+- ✅ 实时刷新功能
+- ✅ 统计信息（总数、平均置信度）
+- ✅ 响应式设计，支持移动端
+- ✅ 数据格式容错处理
 
 ## PR
 - PR #75: https://github.com/alx18779-coder/website-live-chat-agent/pull/75
