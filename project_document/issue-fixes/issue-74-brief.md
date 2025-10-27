@@ -32,5 +32,5 @@
 - 单例模式：使用全局 SessionManager 实例
 
 ## PR
-- PR #(待创建): https://github.com/alx18779-coder/website-live-chat-agent/pull/(待创建)
+- PR #75: https://github.com/alx18779-coder/website-live-chat-agent/pull/75
 
