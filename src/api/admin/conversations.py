@@ -5,10 +5,10 @@
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.api.admin.dependencies import verify_admin_token
 from src.core.config import get_settings
@@ -24,7 +24,7 @@ class ConversationResponse(BaseModel):
     session_id: str
     user_message: str
     ai_response: str
-    retrieved_docs: List[dict]
+    retrieved_docs: Any = Field(default=None, description="检索文档（支持多种格式）")
     confidence_score: Optional[float]
     created_at: datetime
 
