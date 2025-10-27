@@ -18,6 +18,7 @@
 ## 影响文件
 - `src/core/session_manager.py` (新建, +245)
 - `src/api/v1/openai_compat.py` (+17 -1)
+- `src/models/openai_schema.py` (+1) - 添加 session_id 字段
 - `tests/unit/core/test_session_manager.py` (新建, +230)
 
 ## 测试结果
