@@ -10,7 +10,7 @@ export interface Conversation {
   session_id: string
   user_message: string
   ai_response: string
-  retrieved_docs: Array<Record<string, any>>
+  retrieved_docs: Array<Record<string, any>> | any // 支持多种格式
   confidence_score: number | null
   created_at: string
 }

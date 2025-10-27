@@ -104,28 +104,33 @@
           </div>
 
           <!-- 检索文档 -->
-          <div class="message-section" v-if="selectedConversation.retrieved_docs && selectedConversation.retrieved_docs.length > 0">
-            <h4>检索文档 ({{ selectedConversation.retrieved_docs.length }})</h4>
+          <div class="message-section" v-if="getRetrievedDocs(selectedConversation).length > 0">
+            <h4>检索文档 ({{ getRetrievedDocs(selectedConversation).length }})</h4>
             <n-collapse>
               <n-collapse-item 
-                v-for="(doc, index) in selectedConversation.retrieved_docs" 
+                v-for="(doc, index) in getRetrievedDocs(selectedConversation)" 
                 :key="index"
-                :title="`文档 ${index + 1}${doc.score ? ` - 相似度: ${(doc.score * 100).toFixed(1)}%` : ''}`"
+                :title="`文档 ${index + 1}${typeof doc === 'object' && doc.score ? ` - 相似度: ${(doc.score * 100).toFixed(1)}%` : ''}`"
               >
                 <n-card embedded size="small">
                   <n-space vertical>
-                    <div v-if="doc.metadata">
-                      <n-text strong>元数据:</n-text>
-                      <pre class="metadata-pre">{{ JSON.stringify(doc.metadata, null, 2) }}</pre>
+                    <div v-if="typeof doc === 'string'">
+                      <n-text>{{ doc }}</n-text>
                     </div>
-                    <div v-if="doc.content">
-                      <n-text strong>内容:</n-text>
-                      <n-text depth="3">{{ doc.content }}</n-text>
-                    </div>
-                    <div v-if="doc.text">
-                      <n-text strong>文本:</n-text>
-                      <n-text depth="3">{{ doc.text }}</n-text>
-                    </div>
+                    <template v-else>
+                      <div v-if="doc.metadata">
+                        <n-text strong>元数据:</n-text>
+                        <pre class="metadata-pre">{{ JSON.stringify(doc.metadata, null, 2) }}</pre>
+                      </div>
+                      <div v-if="doc.content">
+                        <n-text strong>内容:</n-text>
+                        <n-text depth="3">{{ doc.content }}</n-text>
+                      </div>
+                      <div v-if="doc.text">
+                        <n-text strong>文本:</n-text>
+                        <n-text depth="3">{{ doc.text }}</n-text>
+                      </div>
+                    </template>
                   </n-space>
                 </n-card>
               </n-collapse-item>
@@ -241,7 +246,7 @@ const columns: DataTableColumns<Conversation> = [
     key: 'retrieved_docs',
     width: 100,
     align: 'center',
-    render: (row) => row.retrieved_docs?.length || 0
+    render: (row) => getRetrievedDocs(row).length
   },
   {
     title: '创建时间',
@@ -291,6 +296,30 @@ function getConfidenceType(score: number | null): 'success' | 'warning' | 'error
   if (score >= 0.8) return 'success'
   if (score >= 0.6) return 'warning'
   return 'error'
+}
+
+// 获取检索文档（处理不同格式）
+function getRetrievedDocs(conversation: Conversation): any[] {
+  if (!conversation.retrieved_docs) return []
+  
+  // 如果是数组，直接返回
+  if (Array.isArray(conversation.retrieved_docs)) {
+    return conversation.retrieved_docs
+  }
+  
+  // 如果是其他类型，尝试转换
+  try {
+    if (typeof conversation.retrieved_docs === 'string') {
+      return [conversation.retrieved_docs]
+    }
+    if (typeof conversation.retrieved_docs === 'object') {
+      return [conversation.retrieved_docs]
+    }
+  } catch (e) {
+    console.error('Failed to parse retrieved_docs:', e)
+  }
+  
+  return []
 }
 
 // 加载对话列表
