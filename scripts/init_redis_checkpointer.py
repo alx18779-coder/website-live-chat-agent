@@ -66,20 +66,65 @@ async def init_redis_checkpointer():
         checkpointer = AsyncRedisSaver(redis_url)
         logger.info("✅ AsyncRedisSaver created successfully")
         
-        # 测试索引（通过查询触发索引创建）
-        logger.info("📝 Testing index initialization...")
+        # 显式创建索引（如果有 setup 方法）
+        logger.info("📝 Setting up indexes...")
+        if hasattr(checkpointer, 'setup'):
+            await checkpointer.setup()
+            logger.info("✅ Indexes setup completed")
+        else:
+            logger.info("ℹ️  No explicit setup method found, indexes will be created on first use")
+        
+        # 测试索引（通过实际的 checkpoint 写入触发所有索引创建）
+        logger.info("📝 Initializing indexes through test checkpoint write...")
+        
+        from langgraph.checkpoint.base import Checkpoint, CheckpointMetadata
+        
         test_config = {
             "configurable": {
-                "thread_id": "test-init-thread",
+                "thread_id": "init-test-thread",
+                "checkpoint_ns": "",
+                "checkpoint_id": "init-test-checkpoint"
             }
         }
         
-        # 尝试获取 checkpoint（如果索引不存在会自动创建）
+        # 创建一个最小化的测试 checkpoint
+        test_checkpoint = Checkpoint(
+            v=1,
+            id="init-test-checkpoint",
+            ts="2024-01-01T00:00:00.000000+00:00",
+            channel_values={"__start__": "test"},
+            channel_versions={"__start__": 1},
+            versions_seen={"__start__": {"__start__": 1}},
+            pending_sends=[]
+        )
+        
+        test_metadata = CheckpointMetadata(
+            source="input",
+            step=0,
+            writes={"__start__": "test"},
+            parents={}
+        )
+        
+        # 执行写入操作（这会触发所有索引的创建，包括 checkpoint_writes）
+        logger.info("📝 Writing test checkpoint to trigger index creation...")
+        await checkpointer.aput(
+            test_config,
+            test_checkpoint,
+            test_metadata,
+            {}
+        )
+        logger.info("✅ Test checkpoint written successfully")
+        
+        # 验证读取
+        logger.info("📝 Verifying checkpoint read...")
         result = await checkpointer.aget_tuple(test_config)
-        logger.info(f"✅ Index test successful (result: {result is not None})")
+        if result:
+            logger.info("✅ Checkpoint read verification successful")
+        else:
+            logger.warning("⚠️ Checkpoint read returned None (this is OK for initialization)")
         
         await redis_client.aclose()
-        logger.info("✅ Redis indexes initialized successfully!")
+        logger.info("✅ All Redis indexes initialized successfully!")
         logger.info("🎉 LangGraph AsyncRedisSaver is ready to use")
         
         return True

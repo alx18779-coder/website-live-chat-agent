@@ -63,8 +63,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 预编译 LangGraph App
     try:
         from src.agent.main.graph import get_agent_app
-        get_agent_app()
+        agent_app = get_agent_app()
         logger.info("✅ LangGraph Agent compiled successfully")
+        
+        # 初始化 Redis Checkpointer 索引（如果使用 Redis checkpointer）
+        if settings.langgraph_checkpointer == "redis" and hasattr(agent_app, 'checkpointer'):
+            try:
+                checkpointer = agent_app.checkpointer
+                if hasattr(checkpointer, 'setup'):
+                    await checkpointer.setup()
+                    logger.info("✅ Redis Checkpointer indexes initialized successfully")
+                else:
+                    logger.info("ℹ️  Checkpointer has no setup method, indexes will be created on first use")
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to setup Redis Checkpointer indexes: {e}")
+                logger.warning("   Indexes will be created automatically on first use")
     except Exception as e:
         logger.error(f"❌ Failed to compile LangGraph Agent: {e}")
 
