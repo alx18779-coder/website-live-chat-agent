@@ -12,14 +12,14 @@ from src.models.schemas.base import BaseCollectionSchema
 
 class HistoryCollectionSchema(BaseCollectionSchema):
     """对话历史Collection Schema"""
-    
+
     COLLECTION_NAME: ClassVar[str] = settings.milvus_history_collection
-    
+
     @classmethod
     def get_milvus_schema(cls) -> dict[str, Any]:
         """
         获取对话历史Milvus schema
-        
+
         字段说明:
         - id: 消息唯一标识（主键）
         - session_id: 会话ID
@@ -70,7 +70,7 @@ class HistoryCollectionSchema(BaseCollectionSchema):
             "description": "对话历史记录",
             "enable_dynamic_field": False,
         }
-    
+
     @classmethod
     def get_index_params(cls) -> dict[str, Any]:
         """获取向量索引配置"""

@@ -14,17 +14,17 @@ logger = logging.getLogger(__name__)
 
 class EmbeddingService:
     """嵌入服务类"""
-    
+
     def __init__(self):
         self.embeddings = create_embeddings()
-    
+
     async def get_embedding(self, text: str) -> List[float]:
         """
         获取文本的嵌入向量
-        
+
         Args:
             text: 输入文本
-            
+
         Returns:
             嵌入向量列表
         """
@@ -35,14 +35,14 @@ class EmbeddingService:
         except Exception as e:
             logger.error(f"生成嵌入向量失败: {e}")
             raise
-    
+
     async def get_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
         批量获取文本的嵌入向量
-        
+
         Args:
             texts: 输入文本列表
-            
+
         Returns:
             嵌入向量列表
         """

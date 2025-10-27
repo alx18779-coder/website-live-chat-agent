@@ -81,7 +81,7 @@ async def upsert_knowledge(request: KnowledgeUpsertRequest) -> KnowledgeUpsertRe
         else:
             # 使用新的Repository
             from src.repositories import get_knowledge_repository
-            
+
             knowledge_repo = get_knowledge_repository()
             inserted_count = await knowledge_repo.insert(documents_to_insert)
 
@@ -126,7 +126,7 @@ async def search_knowledge(
 
         # 检索（使用新的Repository）
         from src.repositories import get_knowledge_repository
-        
+
         knowledge_repo = get_knowledge_repository()
         knowledge_results = await knowledge_repo.search(
             query_embedding=query_embedding,

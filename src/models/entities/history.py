@@ -8,12 +8,12 @@ from pydantic import BaseModel, ConfigDict, Field
 class ConversationHistory(BaseModel):
     """
     对话历史实体
-    
+
     用于history search返回结果的类型安全封装
     """
-    
+
     model_config = ConfigDict(frozen=False, extra="allow")
-    
+
     role: str = Field(..., description="角色: user/assistant")
     text: str = Field(..., description="消息文本")
     timestamp: int = Field(..., description="消息时间戳")

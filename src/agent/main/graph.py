@@ -96,8 +96,9 @@ def compile_agent_graph() -> any:
                 redis_url += f":{settings.redis_password}@"
             redis_url += f"{settings.redis_host}:{settings.redis_port}/{settings.redis_db}"
 
-            # 直接使用构造函数初始化（传入redis_url）
+            # 创建 AsyncRedisSaver（传入 redis_url）
             checkpointer = AsyncRedisSaver(redis_url)
+            logger.info("✅ AsyncRedisSaver created, indexes will be initialized on first use")
         except ImportError:
             logger.warning("⚠️ langgraph-checkpoint-redis not installed, falling back to MemorySaver")
             checkpointer = MemorySaver()

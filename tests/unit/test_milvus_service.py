@@ -4,7 +4,7 @@
 测试 Milvus 向量数据库的连接、检索和插入逻辑。
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -35,11 +35,11 @@ async def test_milvus_initialize():
 async def test_milvus_close():
     """测试 Milvus 关闭连接"""
     service = MilvusService()
-    
+
     # Mock client
     mock_client = AsyncMock()
     service.client = mock_client
-    
+
     await service.close()
     mock_client.close.assert_called_once()
 
@@ -48,7 +48,7 @@ async def test_milvus_close():
 async def test_milvus_search_success(mock_embeddings):
     """测试向量检索成功"""
     service = MilvusService()
-    
+
     # Mock AsyncMilvusClient
     mock_client = AsyncMock()
     service.client = mock_client
@@ -85,7 +85,7 @@ async def test_milvus_search_success(mock_embeddings):
 async def test_milvus_search_empty_query():
     """测试空向量"""
     service = MilvusService()
-    
+
     # Mock client
     mock_client = AsyncMock()
     service.client = mock_client
@@ -105,7 +105,7 @@ async def test_milvus_search_empty_query():
 async def test_milvus_insert_documents_success(mock_embeddings):
     """测试插入文档成功"""
     service = MilvusService()
-    
+
     # Mock client
     mock_client = AsyncMock()
     service.client = mock_client
@@ -136,7 +136,7 @@ async def test_milvus_insert_documents_success(mock_embeddings):
 async def test_milvus_insert_empty_documents():
     """测试插入空文档列表"""
     service = MilvusService()
-    
+
     # Mock client
     mock_client = AsyncMock()
     service.client = mock_client
@@ -150,7 +150,7 @@ async def test_milvus_insert_empty_documents():
 async def test_milvus_health_check_healthy():
     """测试健康检查 - 健康状态"""
     service = MilvusService()
-    
+
     # Mock client已初始化，list_collections成功
     mock_client = AsyncMock()
     mock_client.list_collections.return_value = ["knowledge_base", "conversation_history"]
@@ -165,7 +165,7 @@ async def test_milvus_health_check_healthy():
 async def test_milvus_health_check_unhealthy():
     """测试健康检查 - 不健康状态"""
     service = MilvusService()
-    
+
     # Mock client未初始化
     service.client = None
 
@@ -177,7 +177,7 @@ async def test_milvus_health_check_unhealthy():
 async def test_milvus_health_check_server_error():
     """测试健康检查 - 服务器错误"""
     service = MilvusService()
-    
+
     # Mock client初始化，但list_collections失败
     mock_client = AsyncMock()
     mock_client.list_collections.side_effect = Exception("Connection refused")
@@ -191,7 +191,7 @@ async def test_milvus_health_check_server_error():
 async def test_milvus_search_with_score_threshold(mock_embeddings):
     """测试带相似度阈值的检索"""
     service = MilvusService()
-    
+
     # Mock client
     mock_client = AsyncMock()
     service.client = mock_client
@@ -241,7 +241,7 @@ def test_milvus_singleton():
 async def test_milvus_search_score_is_similarity_not_distance():
     """测试返回的 score 是相似度而非距离（Issue #30 修复验证）"""
     service = MilvusService()
-    
+
     # Mock client
     mock_client = AsyncMock()
     service.client = mock_client

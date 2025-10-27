@@ -30,6 +30,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     应用生命周期管理
 
     启动时:
+    - 初始化 PostgreSQL 连接（全局 DatabaseService）
     - 初始化 Milvus 连接
     - 初始化 Redis 连接
     - 创建 Milvus Collections（如果不存在）
@@ -43,13 +44,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"🗄️  Milvus Host: {settings.milvus_host}:{settings.milvus_port}")
     logger.info(f"💾 Redis Host: {settings.redis_host}:{settings.redis_port}")
 
+    # 初始化全局 DatabaseService（防止连接泄漏）
+    from src.db.base import DatabaseService
+    db_service = DatabaseService(settings.postgres_url)
+    app.state.db_service = db_service
+    logger.info("✅ Global DatabaseService initialized")
+
     # 初始化 Milvus（测试环境可通过SKIP_MILVUS_INIT=1跳过）
     if not __import__("os").environ.get("SKIP_MILVUS_INIT"):
         try:
             from src.services.milvus_service import milvus_service
             await milvus_service.initialize()
             logger.info("✅ Milvus initialized successfully")
-            
+
             # 初始化Repository层
             from src.repositories import initialize_repositories
             await initialize_repositories()
@@ -63,8 +70,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 预编译 LangGraph App
     try:
         from src.agent.main.graph import get_agent_app
-        get_agent_app()
+        agent_app = get_agent_app()
         logger.info("✅ LangGraph Agent compiled successfully")
+
+        # 初始化 Redis Checkpointer 索引（如果使用 Redis checkpointer）
+        if settings.langgraph_checkpointer == "redis" and hasattr(agent_app, 'checkpointer'):
+            try:
+                checkpointer = agent_app.checkpointer
+                if hasattr(checkpointer, 'setup'):
+                    await checkpointer.setup()
+                    logger.info("✅ Redis Checkpointer indexes initialized successfully")
+                else:
+                    logger.info("ℹ️  Checkpointer has no setup method, indexes will be created on first use")
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to setup Redis Checkpointer indexes: {e}")
+                logger.warning("   Indexes will be created automatically on first use")
     except Exception as e:
         logger.error(f"❌ Failed to compile LangGraph Agent: {e}")
 
@@ -72,11 +92,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # 清理资源
     logger.info("🛑 Shutting down Website Live Chat Agent...")
+
+    # 关闭全局 DatabaseService
+    try:
+        if hasattr(app.state, 'db_service'):
+            await app.state.db_service.close()
+            logger.info("✅ Global DatabaseService closed")
+    except Exception as e:
+        logger.error(f"❌ Error closing DatabaseService: {e}")
+
+    # 关闭 Milvus
     try:
         from src.services.milvus_service import milvus_service
         await milvus_service.close()
+        logger.info("✅ Milvus closed")
     except Exception as e:
-        logger.error(f"Error closing Milvus: {e}")
+        logger.error(f"❌ Error closing Milvus: {e}")
 
 
 # 创建 FastAPI 应用
@@ -118,8 +149,10 @@ async def app_exception_handler(request, exc: AppException) -> JSONResponse:
 
 # 注册路由
 # ruff: noqa: E402 - 导入必须在app创建后，避免循环依赖
+from src.api.admin import analytics, auth, conversations, faq
+from src.api.admin import knowledge as admin_knowledge
+from src.api.admin import settings as admin_settings
 from src.api.v1 import knowledge, openai_compat
-from src.api.admin import auth, knowledge as admin_knowledge, conversations, analytics, settings as admin_settings, faq
 from src.services.milvus_service import milvus_service
 
 app.include_router(openai_compat.router, prefix="/v1", tags=["Chat"])

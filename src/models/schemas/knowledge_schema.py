@@ -12,14 +12,14 @@ from src.models.schemas.base import BaseCollectionSchema
 
 class KnowledgeCollectionSchema(BaseCollectionSchema):
     """知识库Collection Schema"""
-    
+
     COLLECTION_NAME: ClassVar[str] = settings.milvus_knowledge_collection
-    
+
     @classmethod
     def get_milvus_schema(cls) -> dict[str, Any]:
         """
         获取知识库Milvus schema
-        
+
         字段说明:
         - id: 文档唯一标识（主键）
         - text: 文档文本内容
@@ -62,12 +62,12 @@ class KnowledgeCollectionSchema(BaseCollectionSchema):
             "description": "网站知识库",
             "enable_dynamic_field": False,
         }
-    
+
     @classmethod
     def get_index_params(cls) -> dict[str, Any]:
         """
         获取向量索引配置
-        
+
         使用COSINE相似度和IVF_FLAT索引
         """
         return {

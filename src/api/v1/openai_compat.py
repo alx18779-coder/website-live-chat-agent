@@ -9,13 +9,15 @@ import time
 import uuid
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage
 
 from src.agent.main.graph import get_agent_app
 from src.core.config import settings
 from src.core.security import verify_api_key
+from src.db.base import DatabaseService
+from src.db.dependencies import get_db_service
 from src.models.openai_schema import (
     ChatCompletionChoice,
     ChatCompletionChunk,
@@ -149,6 +151,8 @@ async def list_models() -> OpenAIModelList:
 @router.post("/chat/completions", response_model=None)
 async def chat_completions(
     request: ChatCompletionRequest,
+    http_request: Request,
+    db_service: "DatabaseService" = Depends(get_db_service),
 ) -> ChatCompletionResponse | StreamingResponse:
     """
     OpenAI 兼容的 Chat Completions 端点
@@ -206,8 +210,25 @@ async def chat_completions(
     else:
         user_message = last_message.content
 
-    # 生成 session_id（可选：从请求中提取）
-    session_id = f"session-{uuid.uuid4().hex[:12]}"
+    # 获取或生成 session_id
+    # 优先使用客户端提供的 session_id（用于多轮对话追踪）
+    # 如果客户端未提供，则使用自动会话管理（基于客户端指纹）
+    if request.session_id:
+        # 客户端提供了 session_id，直接使用（向后兼容）
+        session_id = request.session_id
+        logger.debug(f"使用客户端提供的 session_id: {session_id}")
+    else:
+        # 使用自动会话管理
+        from src.core.session_manager import get_or_create_session
+
+        session_id = await get_or_create_session(
+            client_ip=http_request.client.host,
+            user_agent=http_request.headers.get("user-agent", "unknown"),
+            user_id=http_request.headers.get("x-user-id")  # 可选，用于已认证用户
+        )
+        logger.debug(f"使用自动会话管理生成的 session_id: {session_id}")
+
+    logger.info(f"💬 Chat request | session_id={session_id} | stream={request.stream}")
 
     # 流式响应
     if request.stream:
@@ -219,6 +240,7 @@ async def chat_completions(
                 created_timestamp=created_timestamp,
                 model=request.model,
                 requested_model=requested_model,
+                db_service=db_service,
             ),
             media_type="text/event-stream",
         )
@@ -231,6 +253,7 @@ async def chat_completions(
         created_timestamp=created_timestamp,
         model=request.model,
         requested_model=requested_model,
+        db_service=db_service,
     )
 
 
@@ -241,6 +264,7 @@ async def _non_stream_response(
     created_timestamp: int,
     model: str,
     requested_model: str,
+    db_service: DatabaseService,
 ) -> ChatCompletionResponse:
     """非流式响应"""
     from src.agent.main.nodes import _get_filter_reason, _is_valid_user_query
@@ -314,6 +338,41 @@ async def _non_stream_response(
         else:
             response_content = str(ai_message)
 
+        # === 新增：异步保存对话到 PostgreSQL ===
+        # 异步保存对话历史（不阻塞响应）
+        try:
+            from src.db.repositories.conversation_repository import ConversationRepository
+
+            # 使用全局 DatabaseService（通过依赖注入）
+            async with db_service.get_session() as db_session:
+                repo = ConversationRepository(db_session)
+
+                # 保存对话记录
+                conversation = await repo.create_conversation(
+                    session_id=session_id,
+                    user_message=user_message,
+                    ai_response=response_content,
+                    retrieved_docs=result.get("retrieved_docs"),
+                    confidence_score=result.get("confidence_score")
+                )
+
+                logger.info(
+                    f"✅ Conversation saved successfully | "
+                    f"session_id={session_id} | "
+                    f"conversation_id={conversation.id}"
+                )
+
+        except Exception as e:
+            # 保存失败不影响用户响应（符合架构要求）
+            # 只记录错误日志，不抛出异常
+            logger.error(
+                f"❌ Failed to save conversation to PostgreSQL | "
+                f"session_id={session_id} | "
+                f"error={str(e)} | "
+                f"error_type={type(e).__name__}"
+            )
+            # 注意：不要 raise，让响应正常返回
+
         # 计算 Token 使用（简化版，使用字符数估算）
         prompt_tokens = len(user_message) // 4
         completion_tokens = len(response_content) // 4
@@ -367,6 +426,7 @@ async def _stream_response(
     created_timestamp: int,
     model: str,
     requested_model: str,
+    db_service: DatabaseService,
 ) -> AsyncGenerator[str, None]:
     """流式响应（SSE）"""
     from src.agent.main.nodes import _is_valid_user_query
@@ -432,6 +492,11 @@ async def _stream_response(
 
     config = {"configurable": {"thread_id": session_id}}
 
+    # === 新增：用于收集完整响应和检索文档 ===
+    collected_response = ""
+    collected_retrieved_docs = None
+    collected_confidence_score = None
+
     try:
         # 发送初始 chunk（role）
         first_chunk = ChatCompletionChunk(
@@ -453,6 +518,14 @@ async def _stream_response(
 
         # 流式执行 Agent
         async for chunk in app.astream(initial_state, config):
+            logger.debug(f"📦 Agent chunk: {list(chunk.keys())}")
+
+            # === 新增：收集检索文档 ===
+            if "retrieve" in chunk:
+                retrieve_output = chunk["retrieve"]
+                if isinstance(retrieve_output, dict) and "retrieved_docs" in retrieve_output:
+                    collected_retrieved_docs = retrieve_output["retrieved_docs"]
+
             # 检查是否有新的 AI 消息
             if "llm" in chunk:  # LLM 节点的输出
                 llm_output = chunk["llm"]
@@ -460,6 +533,11 @@ async def _stream_response(
                 # 类型检查：确保llm_output是字典类型
                 if isinstance(llm_output, dict):
                     messages = llm_output.get("messages", [])
+
+                    # === 新增：收集置信度分数 ===
+                    if "confidence_score" in llm_output:
+                        collected_confidence_score = llm_output.get("confidence_score")
+
                 elif isinstance(llm_output, str):
                     # 如果llm_output是字符串，可能是错误信息或直接内容
                     logger.warning(f"⚠️ LLM output is string: {llm_output}")
@@ -473,6 +551,9 @@ async def _stream_response(
                     ai_message = messages[-1]
                     if isinstance(ai_message, AIMessage):
                         content = ai_message.content
+
+                        # === 新增：累积完整响应 ===
+                        collected_response += content
 
                         # 发送内容 chunk
                         # 注意：这里发送完整内容，实际应该发送增量
@@ -508,6 +589,37 @@ async def _stream_response(
 
         # 发送 [DONE]
         yield "data: [DONE]\n\n"
+
+        # === 新增：流式响应完成后保存对话 ===
+        if collected_response:
+            try:
+                from src.db.repositories.conversation_repository import ConversationRepository
+
+                # 使用全局 DatabaseService（通过依赖注入）
+                async with db_service.get_session() as db_session:
+                    repo = ConversationRepository(db_session)
+
+                    conversation = await repo.create_conversation(
+                        session_id=session_id,
+                        user_message=user_message,
+                        ai_response=collected_response,
+                        retrieved_docs=collected_retrieved_docs,
+                        confidence_score=collected_confidence_score
+                    )
+
+                    logger.info(
+                        f"✅ Streaming conversation saved | "
+                        f"session_id={session_id} | "
+                        f"conversation_id={conversation.id}"
+                    )
+
+            except Exception as e:
+                logger.error(
+                    f"❌ Failed to save streaming conversation | "
+                    f"session_id={session_id} | "
+                    f"error={str(e)} | "
+                    f"error_type={type(e).__name__}"
+                )
 
     except Exception as e:
         import traceback

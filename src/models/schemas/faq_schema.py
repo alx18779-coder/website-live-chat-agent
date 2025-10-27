@@ -12,14 +12,14 @@ from src.models.schemas.base import BaseCollectionSchema
 
 class FAQCollectionSchema(BaseCollectionSchema):
     """FAQ Collection Schema - 支持灵活的列配置"""
-    
+
     COLLECTION_NAME: ClassVar[str] = settings.milvus_faq_collection
-    
+
     @classmethod
     def get_milvus_schema(cls) -> dict[str, Any]:
         """
         FAQ Schema定义
-        
+
         字段说明:
         - id: FAQ唯一标识（主键）
         - text: 拼接后的文本内容（用于展示和二次检索）
@@ -68,7 +68,7 @@ class FAQCollectionSchema(BaseCollectionSchema):
             "description": "FAQ知识库",
             "enable_dynamic_field": False,
         }
-    
+
     @classmethod
     def get_index_params(cls) -> dict[str, Any]:
         """向量索引配置"""

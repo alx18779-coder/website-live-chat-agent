@@ -5,8 +5,8 @@
 所有配置项都有类型检查和默认值。
 """
 
-from typing import Literal
 import secrets
+from typing import Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -306,7 +306,7 @@ class Settings(BaseSettings):
     admin_password: str = Field(default="", description="管理员密码")
     jwt_secret_key: str = Field(default="", description="JWT密钥")
     jwt_expire_minutes: int = Field(default=60, description="JWT过期时间（分钟）")
-    
+
     # ===== 文件上传配置 =====
     max_upload_size_mb: int = Field(default=10, description="最大上传文件大小（MB）")
 
@@ -609,7 +609,7 @@ settings = Settings()
 def get_settings() -> Settings:
     """
     获取配置实例
-    
+
     Returns:
         Settings: 配置实例
     """

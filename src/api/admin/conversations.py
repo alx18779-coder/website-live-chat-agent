@@ -5,10 +5,10 @@
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.api.admin.dependencies import verify_admin_token
 from src.core.config import get_settings
@@ -24,7 +24,7 @@ class ConversationResponse(BaseModel):
     session_id: str
     user_message: str
     ai_response: str
-    retrieved_docs: List[dict]
+    retrieved_docs: Any = Field(default=None, description="检索文档（支持多种格式）")
     confidence_score: Optional[float]
     created_at: datetime
 
@@ -57,6 +57,7 @@ async def get_conversation_history(
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     start_date: Optional[datetime] = Query(None, description="开始日期"),
     end_date: Optional[datetime] = Query(None, description="结束日期"),
+    session_id: Optional[str] = Query(None, description="会话ID筛选"),
     current_user: dict = Depends(verify_admin_token),
     conversation_repo: ConversationRepository = Depends(get_conversation_repository)
 ):
@@ -68,6 +69,7 @@ async def get_conversation_history(
         page_size: 每页数量
         start_date: 开始日期
         end_date: 结束日期
+        session_id: 会话ID筛选（模糊匹配）
         current_user: 当前用户信息
         conversation_repo: 对话历史 Repository（依赖注入）
 
@@ -83,13 +85,15 @@ async def get_conversation_history(
             skip=skip,
             limit=page_size,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            session_id=session_id
         )
 
         # 获取总数
         total = await conversation_repo.count_conversations(
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            session_id=session_id
         )
 
         # 格式化响应

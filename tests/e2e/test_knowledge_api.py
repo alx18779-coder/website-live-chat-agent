@@ -100,7 +100,7 @@ def test_knowledge_search_success(
 ):
     """测试成功检索文档"""
     from src.models.entities.knowledge import Knowledge
-    
+
     # 使用Knowledge实体（新的Repository返回类型）
     mock_knowledge_repository.search.return_value = [
         Knowledge(

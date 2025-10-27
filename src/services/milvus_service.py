@@ -10,7 +10,7 @@ Milvus 向量数据库服务
     旧代码:
         from src.services.milvus_service import milvus_service
         results = await milvus_service.search_knowledge(embedding, top_k=5)
-    
+
     新代码:
         from src.repositories import get_knowledge_repository
         knowledge_repo = get_knowledge_repository()
@@ -37,12 +37,12 @@ logger = logging.getLogger(__name__)
 class MilvusService:
     """
     Milvus 向量数据库服务（异步版本）
-    
+
     .. deprecated:: 0.2.0
         MilvusService已废弃，请使用Repository模式。
-        使用 `src.repositories.get_knowledge_repository()` 和 
+        使用 `src.repositories.get_knowledge_repository()` 和
         `src.repositories.get_history_repository()` 替代。
-        
+
         此类将在6个月后（2025-04-22）删除。
     """
 
@@ -68,7 +68,7 @@ class MilvusService:
         try:
             # 构建Milvus URI
             uri = f"http://{settings.milvus_host}:{settings.milvus_port}"
-            
+
             # 创建异步客户端
             self.client = AsyncMilvusClient(
                 uri=uri,
@@ -93,7 +93,7 @@ class MilvusService:
         """创建知识库 Collection（如果不存在）"""
         if not self.client:
             raise MilvusConnectionError("Milvus client not initialized")
-            
+
         collection_name = self.knowledge_collection_name
 
         # 检查 Collection 是否存在
@@ -153,14 +153,14 @@ class MilvusService:
             schema=schema,
             index_params=index_params,
         )
-        
+
         logger.info(f"✅ Created and loaded collection: {collection_name}")
 
     async def _create_history_collection(self) -> None:
         """创建对话历史 Collection（如果不存在）"""
         if not self.client:
             raise MilvusConnectionError("Milvus client not initialized")
-            
+
         collection_name = self.history_collection_name
 
         # 检查 Collection 是否存在
@@ -262,7 +262,7 @@ class MilvusService:
         # 格式化结果
         filtered_results = []
         threshold = score_threshold or settings.vector_score_threshold
-        
+
         # AsyncMilvusClient返回的结果格式略有不同
         for hit in results[0]:
             # COSINE距离转换为相似度：distance范围[-1,1]，相似度=(1+distance)/2
@@ -303,7 +303,7 @@ class MilvusService:
         # 准备数据 - AsyncMilvusClient使用字典列表格式
         data = []
         current_time = int(time.time())
-        
+
         for doc in documents:
             data.append({
                 "id": doc["id"],
@@ -355,7 +355,7 @@ class MilvusService:
     async def health_check(self) -> bool:
         """
         健康检查
-        
+
         通过尝试列出collections来验证Milvus服务器连接状态
 
         Returns:
@@ -364,7 +364,7 @@ class MilvusService:
         try:
             if not self.client:
                 return False
-            
+
             # 真正验证Milvus服务器状态：尝试列出collections
             await self.client.list_collections()
             return True
