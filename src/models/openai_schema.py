@@ -26,6 +26,7 @@ class ChatCompletionRequest(BaseModel):
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="温度参数")
     max_tokens: int | None = Field(default=None, ge=1, description="最大生成 Token 数")
     top_p: float = Field(default=1.0, ge=0.0, le=1.0, description="核采样参数")
+    session_id: str | None = Field(default=None, description="会话ID（可选，用于多轮对话追踪）")
 
 
 # ===== 响应模型 =====
