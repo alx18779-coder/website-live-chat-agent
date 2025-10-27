@@ -5,14 +5,20 @@ FAQ管理 API
 """
 
 import logging
-from typing import Optional
-
-import asyncio
 import time
 import uuid
-from typing import Dict
+from typing import Dict, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel
 
 from src.api.admin.dependencies import verify_admin_token
@@ -41,7 +47,7 @@ async def process_faq_import_task(
 ):
     """
     后台任务：处理FAQ导入
-    
+
     Args:
         task_id: 任务ID
         file_content: CSV文件内容
@@ -54,7 +60,7 @@ async def process_faq_import_task(
         # 更新状态为处理中
         import_tasks[task_id]["status"] = "processing"
         import_tasks[task_id]["message"] = "正在解析CSV..."
-        
+
         # 解析CSV
         parser = FAQCSVParser()
         faqs = await parser.process_csv(
@@ -64,31 +70,31 @@ async def process_faq_import_task(
             text_template=text_template,
             language=language,
         )
-        
+
         import_tasks[task_id]["total"] = len(faqs)
         import_tasks[task_id]["message"] = f"正在导入 {len(faqs)} 条FAQ..."
-        
+
         if not faqs:
             import_tasks[task_id]["status"] = "failed"
             import_tasks[task_id]["error"] = "CSV文件为空或解析失败"
             return
-        
+
         # 插入到Milvus
         milvus_client = await get_milvus_client()
         faq_repo = FAQRepository(milvus_client)
         await faq_repo.initialize()
-        
+
         inserted_count = await faq_repo.insert_faqs(faqs)
-        
+
         # 更新状态为完成
         import_tasks[task_id]["status"] = "completed"
         import_tasks[task_id]["progress"] = 100
         import_tasks[task_id]["processed"] = len(faqs)
         import_tasks[task_id]["imported_count"] = inserted_count
         import_tasks[task_id]["message"] = f"成功导入 {inserted_count} 条FAQ"
-        
+
         logger.info(f"✅ FAQ导入任务 {task_id} 完成，导入 {inserted_count} 条")
-        
+
     except Exception as e:
         logger.error(f"❌ FAQ导入任务 {task_id} 失败: {e}")
         import_tasks[task_id]["status"] = "failed"
@@ -143,7 +149,7 @@ async def preview_csv(
 ) -> CSVPreviewResponse:
     """
     预览CSV文件（第一步）
-    
+
     返回CSV的列信息和前5行数据，供用户配置
     """
     try:
@@ -152,24 +158,24 @@ async def preview_csv(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="仅支持CSV格式文件"
             )
-        
+
         # 检查文件大小
         file.file.seek(0, 2)  # 移动到文件末尾
         file_size = file.file.tell()  # 获取文件大小
         file.file.seek(0)  # 重置到开头
-        
+
         if file_size > MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail=f"文件大小超过限制（最大 {settings.max_upload_size_mb} MB）"
             )
-        
+
         content = await file.read()
         parser = FAQCSVParser()
         preview = await parser.parse_csv_preview(content)
-        
+
         return CSVPreviewResponse(**preview)
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -192,9 +198,9 @@ async def import_csv(
 ) -> FAQImportResponse:
     """
     导入CSV到FAQ库（异步后台处理）
-    
+
     立即返回任务ID，导入在后台执行
-    
+
     Args:
         background_tasks: FastAPI 后台任务
         file: CSV文件
@@ -202,7 +208,7 @@ async def import_csv(
         embedding_columns: 用于生成embedding的列名（逗号分隔）
         text_template: 文本拼接模板
         language: 语言标记
-    
+
     Returns:
         FAQImportResponse: 任务ID和提示信息
     """
@@ -211,28 +217,28 @@ async def import_csv(
         file.file.seek(0, 2)
         file_size = file.file.tell()
         file.file.seek(0)
-        
+
         if file_size > MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail=f"文件大小超过限制（最大 {settings.max_upload_size_mb} MB）"
             )
-        
+
         content = await file.read()
-        
+
         # 解析列配置
         text_cols = [col.strip() for col in text_columns.split(',') if col.strip()]
         embed_cols = [col.strip() for col in embedding_columns.split(',') if col.strip()]
-        
+
         if not text_cols or not embed_cols:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="text_columns和embedding_columns不能为空"
             )
-        
+
         # 创建任务ID
         task_id = str(uuid.uuid4())
-        
+
         # 初始化任务状态
         import_tasks[task_id] = {
             "task_id": task_id,
@@ -245,7 +251,7 @@ async def import_csv(
             "error": None,
             "created_at": time.time()
         }
-        
+
         # 添加后台任务
         background_tasks.add_task(
             process_faq_import_task,
@@ -256,14 +262,14 @@ async def import_csv(
             text_template,
             language
         )
-        
+
         logger.info(f"📤 创建FAQ导入任务: {task_id}")
-        
+
         return FAQImportResponse(
             task_id=task_id,
             message="导入任务已创建，请使用task_id查询导入进度"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -281,22 +287,22 @@ async def get_import_status(
 ) -> FAQImportStatusResponse:
     """
     查询FAQ导入任务状态
-    
+
     Args:
         task_id: 任务ID
         current_user: 当前用户
-    
+
     Returns:
         FAQImportStatusResponse: 任务状态信息
     """
     task = import_tasks.get(task_id)
-    
+
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"任务不存在: {task_id}"
         )
-    
+
     return FAQImportStatusResponse(**task)
 
 
@@ -313,9 +319,9 @@ async def list_faqs(
         faq_repo = FAQRepository(client)
         faqs = await faq_repo.list_faqs(skip=skip, limit=limit, language=language)
         total = await faq_repo.count_faqs()
-        
+
         return FAQListResponse(faqs=faqs, total=total)
-        
+
     except Exception as e:
         logger.error(f"获取FAQ列表失败: {e}")
         raise HTTPException(
@@ -334,15 +340,15 @@ async def get_faq(
         client = await get_milvus_client()
         faq_repo = FAQRepository(client)
         faq = await faq_repo.get_faq_by_id(faq_id)
-        
+
         if not faq:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="FAQ不存在"
             )
-        
+
         return faq
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -363,7 +369,7 @@ async def delete_faq(
         client = await get_milvus_client()
         faq_repo = FAQRepository(client)
         success = await faq_repo.delete_faq(faq_id)
-        
+
         if success:
             return {"message": "FAQ删除成功"}
         else:
@@ -371,7 +377,7 @@ async def delete_faq(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="FAQ不存在"
             )
-            
+
     except HTTPException:
         raise
     except Exception as e:

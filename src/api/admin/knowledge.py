@@ -7,18 +7,29 @@
 import os
 import tempfile
 import uuid
-from typing import List, Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Query, File, UploadFile, Form, BackgroundTasks
+from typing import List, Optional
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel
 
 from src.api.admin.dependencies import verify_admin_token
-from src.repositories.milvus.knowledge_repository import KnowledgeRepository
-from src.repositories.milvus.base_milvus_repository import get_milvus_client
+from src.core.config import get_settings
 from src.db.base import DatabaseService
 from src.db.repositories.file_upload_repository import FileUploadRepository
+from src.repositories.milvus.base_milvus_repository import get_milvus_client
+from src.repositories.milvus.knowledge_repository import KnowledgeRepository
 from src.services.file_upload_processor import FileUploadProcessor
-from src.core.config import get_settings
 
 router = APIRouter(prefix="/api/admin/knowledge", tags=["Knowledge Management"])
 
@@ -85,32 +96,32 @@ async def list_documents(
 ):
     """
     获取文档列表
-    
+
     Args:
         page: 页码
         page_size: 每页数量
         search: 搜索关键词
         current_user: 当前用户信息
-        
+
     Returns:
         DocumentListResponse: 文档列表响应
     """
     try:
         client = await get_milvus_client()
         knowledge_repo = KnowledgeRepository(client)
-        
+
         skip = (page - 1) * page_size
-        
+
         # 获取文档列表
         documents = await knowledge_repo.list_documents(
             skip=skip,
             limit=page_size,
             search_text=search or ""
         )
-        
+
         # 获取总数
         total = await knowledge_repo.count_documents()
-        
+
         # 格式化响应
         document_responses = [
             DocumentResponse(
@@ -121,14 +132,14 @@ async def list_documents(
             )
             for doc in documents
         ]
-        
+
         return DocumentListResponse(
             documents=document_responses,
             total=total,
             page=page,
             page_size=page_size
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -143,36 +154,36 @@ async def get_document(
 ):
     """
     获取文档详情
-    
+
     Args:
         doc_id: 文档ID
         current_user: 当前用户信息
-        
+
     Returns:
         DocumentResponse: 文档详情
-        
+
     Raises:
         HTTPException: 文档不存在时抛出 404 错误
     """
     try:
         client = await get_milvus_client()
         knowledge_repo = KnowledgeRepository(client)
-        
+
         document = await knowledge_repo.get_document_by_id(doc_id)
-        
+
         if not document:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="文档不存在"
             )
-        
+
         return DocumentResponse(
             id=document["id"],
             text=document["text"],
             metadata=document.get("metadata", {}),
             created_at=document.get("created_at", 0)
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -190,22 +201,22 @@ async def update_document(
 ):
     """
     更新文档
-    
+
     Args:
         doc_id: 文档ID
         request: 更新请求
         current_user: 当前用户信息
-        
+
     Returns:
         dict: 更新结果
-        
+
     Raises:
         HTTPException: 文档不存在或更新失败时抛出错误
     """
     try:
         client = await get_milvus_client()
         knowledge_repo = KnowledgeRepository(client)
-        
+
         # 检查文档是否存在
         existing_doc = await knowledge_repo.get_document_by_id(doc_id)
         if not existing_doc:
@@ -213,22 +224,22 @@ async def update_document(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="文档不存在"
             )
-        
+
         # 更新文档
         success = await knowledge_repo.update_document(
             doc_id=doc_id,
             content=request.content,
             metadata=request.metadata
         )
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="更新文档失败"
             )
-        
+
         return {"message": "文档更新成功"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -245,21 +256,21 @@ async def delete_document(
 ):
     """
     删除文档
-    
+
     Args:
         doc_id: 文档ID
         current_user: 当前用户信息
-        
+
     Returns:
         dict: 删除结果
-        
+
     Raises:
         HTTPException: 文档不存在或删除失败时抛出错误
     """
     try:
         client = await get_milvus_client()
         knowledge_repo = KnowledgeRepository(client)
-        
+
         # 检查文档是否存在
         existing_doc = await knowledge_repo.get_document_by_id(doc_id)
         if not existing_doc:
@@ -267,18 +278,18 @@ async def delete_document(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="文档不存在"
             )
-        
+
         # 删除文档
         success = await knowledge_repo.delete_document(doc_id)
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="删除文档失败"
             )
-        
+
         return {"message": "文档删除成功"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -300,32 +311,32 @@ async def upload_files(
 ):
     """
     上传文件到知识库
-    
+
     Args:
         background_tasks: 后台任务
         files: 上传的文件列表
         source: 文件来源
         version: 文件版本
         current_user: 当前用户信息
-        
+
     Returns:
         List[FileUploadResponse]: 上传结果列表
     """
     try:
         settings = get_settings()
         db_service = DatabaseService(settings.postgres_url)
-        
+
         upload_responses = []
-        
+
         async with db_service.get_session() as session:
             upload_repo = FileUploadRepository(session)
-            
+
             for file in files:
                 try:
                     # 验证文件
                     if not file.filename:
                         continue
-                    
+
                     # 检查文件大小
                     file_content = await file.read()
                     if len(file_content) > 10 * 1024 * 1024:  # 10MB
@@ -336,18 +347,18 @@ async def upload_files(
                             message="文件大小超过限制 (10MB)"
                         ))
                         continue
-                    
+
                     # 保存文件到临时目录
                     temp_dir = tempfile.gettempdir()
                     temp_filename = f"{uuid.uuid4()}_{file.filename}"
                     temp_path = os.path.join(temp_dir, temp_filename)
-                    
+
                     with open(temp_path, 'wb') as f:
                         f.write(file_content)
-                    
+
                     # 检测文件类型
                     file_type = _detect_file_type(file_content, file.filename)
-                    
+
                     # 创建上传记录
                     upload_data = {
                         'filename': file.filename,
@@ -360,20 +371,20 @@ async def upload_files(
                         'status': 'pending',
                         'progress': 0
                     }
-                    
+
                     upload_record = await upload_repo.create_upload_record(upload_data)
-                    
+
                     # 添加后台处理任务
                     processor = FileUploadProcessor(db_service)
                     background_tasks.add_task(processor.process_file, str(upload_record.id))
-                    
+
                     upload_responses.append(FileUploadResponse(
                         upload_id=str(upload_record.id),
                         filename=file.filename,
                         status="pending",
                         message="文件上传成功，正在处理..."
                     ))
-                    
+
                 except Exception as e:
                     upload_responses.append(FileUploadResponse(
                         upload_id="",
@@ -381,9 +392,9 @@ async def upload_files(
                         status="failed",
                         message=f"上传失败: {str(e)}"
                     ))
-        
+
         return upload_responses
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -398,22 +409,22 @@ async def list_uploads(
 ):
     """
     获取最近上传记录
-    
+
     Args:
         limit: 返回数量限制
         current_user: 当前用户信息
-        
+
     Returns:
         List[UploadStatusResponse]: 上传记录列表
     """
     try:
         settings = get_settings()
         db_service = DatabaseService(settings.postgres_url)
-        
+
         async with db_service.get_session() as session:
             upload_repo = FileUploadRepository(session)
             uploads = await upload_repo.get_recent_uploads(limit)
-            
+
             return [
                 UploadStatusResponse(
                     upload_id=str(upload.id),
@@ -429,7 +440,7 @@ async def list_uploads(
                 )
                 for upload in uploads
             ]
-            
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -444,28 +455,28 @@ async def get_upload_status(
 ):
     """
     获取上传处理状态
-    
+
     Args:
         upload_id: 上传记录 ID
         current_user: 当前用户信息
-        
+
     Returns:
         UploadStatusResponse: 上传状态
     """
     try:
         settings = get_settings()
         db_service = DatabaseService(settings.postgres_url)
-        
+
         async with db_service.get_session() as session:
             upload_repo = FileUploadRepository(session)
             upload = await upload_repo.get_upload_by_id(upload_id)
-            
+
             if not upload:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="上传记录不存在"
                 )
-            
+
             return UploadStatusResponse(
                 upload_id=str(upload.id),
                 filename=upload.filename,
@@ -478,7 +489,7 @@ async def get_upload_status(
                 created_at=upload.created_at,
                 processed_at=upload.processed_at
             )
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -495,21 +506,21 @@ async def retry_upload(
 ):
     """
     重试失败的上传
-    
+
     Args:
         upload_id: 上传记录 ID
         current_user: 当前用户信息
-        
+
     Returns:
         dict: 重试结果
     """
     try:
         settings = get_settings()
         db_service = DatabaseService(settings.postgres_url)
-        
+
         processor = FileUploadProcessor(db_service)
         success = await processor.retry_upload(upload_id)
-        
+
         if success:
             return {"message": "重试任务已启动"}
         else:
@@ -517,7 +528,7 @@ async def retry_upload(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="重试失败"
             )
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -534,21 +545,21 @@ async def rollback_upload(
 ):
     """
     回滚上传（删除相关文档）
-    
+
     Args:
         upload_id: 上传记录 ID
         current_user: 当前用户信息
-        
+
     Returns:
         dict: 回滚结果
     """
     try:
         settings = get_settings()
         db_service = DatabaseService(settings.postgres_url)
-        
+
         processor = FileUploadProcessor(db_service)
         success = await processor.rollback_upload(upload_id)
-        
+
         if success:
             return {"message": "回滚成功"}
         else:
@@ -556,7 +567,7 @@ async def rollback_upload(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="回滚失败"
             )
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -573,42 +584,42 @@ async def preview_file(
 ):
     """
     预览文件内容（不保存）
-    
+
     Args:
         file: 上传的文件
         current_user: 当前用户信息
-        
+
     Returns:
         FilePreviewResponse: 文件预览结果
     """
     try:
         from src.services.file_parser import FileParser
-        
+
         # 验证文件
         if not file.filename:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="文件名不能为空"
             )
-        
+
         # 读取文件内容
         file_content = await file.read()
-        
+
         # 检查文件大小
         if len(file_content) > 10 * 1024 * 1024:  # 10MB
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="文件大小超过限制 (10MB)"
             )
-        
+
         # 解析文件
         parser = FileParser()
         result = await parser.parse_file(file_content, file.filename)
-        
+
         # 估算 token 数量（粗略估算：1 token ≈ 4 字符）
         total_chars = sum(len(chunk) for chunk in result['chunks'])
         estimated_tokens = total_chars // 4
-        
+
         return FilePreviewResponse(
             filename=file.filename,
             file_type=result['metadata']['file_type'],
@@ -616,7 +627,7 @@ async def preview_file(
             total_chunks=len(result['chunks']),
             estimated_tokens=estimated_tokens
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -629,17 +640,17 @@ async def preview_file(
 def _detect_file_type(file_content: bytes, filename: str) -> str:
     """
     检测文件类型
-    
+
     优先使用 python-magic 检测 MIME 类型（如果可用），
     否则回退到基于文件扩展名的检测。
-    
+
     Args:
         file_content: 文件内容
         filename: 文件名
-        
+
     Returns:
         str: 文件类型 ('pdf', 'markdown', 'txt')
-        
+
     Raises:
         ValueError: 不支持的文件类型
     """
@@ -650,18 +661,18 @@ def _detect_file_type(file_content: bytes, filename: str) -> str:
         'text/plain': 'txt',
         'text/x-markdown': 'markdown'
     }
-    
+
     # 尝试使用 python-magic 检测 MIME 类型（惰性导入）
     try:
         import magic  # 惰性导入，避免顶层导入导致应用启动失败
         mime_type = magic.from_buffer(file_content, mime=True)
-        
+
         if mime_type in mime_type_mapping:
             return mime_type_mapping[mime_type]
     except (ImportError, Exception):
         # python-magic 不可用或检测失败，回退到扩展名检测
         pass
-    
+
     # 基于文件扩展名检测
     ext = filename.lower().split('.')[-1] if '.' in filename else ''
     ext_mapping = {
@@ -671,9 +682,9 @@ def _detect_file_type(file_content: bytes, filename: str) -> str:
         'txt': 'txt',
         'text': 'txt'
     }
-    
+
     if ext in ext_mapping:
         return ext_mapping[ext]
-    
+
     # 不支持的文件类型
     raise ValueError(f"不支持的文件类型: {filename} (扩展名: {ext})")

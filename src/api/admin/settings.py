@@ -4,9 +4,10 @@
 提供系统配置查看和健康检查接口。
 """
 
+from typing import Any, Dict
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from typing import Dict, Any
 
 from src.api.admin.dependencies import verify_admin_token
 from src.core.config import get_settings
@@ -40,16 +41,16 @@ async def get_system_config(
 ):
     """
     获取系统配置（脱敏）
-    
+
     Args:
         current_user: 当前用户信息
-        
+
     Returns:
         SystemConfigResponse: 系统配置信息
     """
     try:
         settings = get_settings()
-        
+
         return SystemConfigResponse(
             llm_provider=settings.llm_provider,
             llm_model=getattr(settings, f"{settings.llm_provider}_model", "unknown"),
@@ -62,7 +63,7 @@ async def get_system_config(
             redis_host=settings.redis_host,
             redis_port=settings.redis_port
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -76,17 +77,17 @@ async def health_check(
 ):
     """
     系统健康检查
-    
+
     Args:
         current_user: 当前用户信息
-        
+
     Returns:
         HealthCheckResponse: 健康检查结果
     """
     try:
         services = {}
         overall_status = "healthy"
-        
+
         # 检查 Milvus 连接
         try:
             from src.repositories.milvus.base_milvus_repository import get_milvus_client
@@ -96,7 +97,7 @@ async def health_check(
         except Exception as e:
             services["milvus"] = {"status": "unhealthy", "message": str(e)}
             overall_status = "degraded"
-        
+
         # 检查 Redis 连接
         try:
             import redis
@@ -112,23 +113,23 @@ async def health_check(
         except Exception as e:
             services["redis"] = {"status": "unhealthy", "message": str(e)}
             overall_status = "degraded"
-        
+
         # 检查 PostgreSQL 连接
         try:
             from src.db.base import DatabaseService
             settings = get_settings()
-            db_service = DatabaseService(settings.postgres_url)
+            DatabaseService(settings.postgres_url)
             # 简单连接测试
             services["postgres"] = {"status": "healthy", "message": "连接正常"}
         except Exception as e:
             services["postgres"] = {"status": "unhealthy", "message": str(e)}
             overall_status = "degraded"
-        
+
         return HealthCheckResponse(
             status=overall_status,
             services=services
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

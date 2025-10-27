@@ -4,15 +4,16 @@
 提供对话历史查询和监控接口。
 """
 
-from typing import List, Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
 from src.api.admin.dependencies import verify_admin_token
-from src.db.repositories.conversation_repository import ConversationRepository
-from src.db.base import DatabaseService
 from src.core.config import get_settings
+from src.db.base import DatabaseService
+from src.db.repositories.conversation_repository import ConversationRepository
 
 router = APIRouter(prefix="/api/admin/conversations", tags=["Conversation Monitoring"])
 
@@ -40,7 +41,7 @@ async def get_conversation_repository():
     """获取对话历史 Repository - 依赖注入"""
     settings = get_settings()
     db_service = DatabaseService(settings.postgres_url)
-    
+
     try:
         # 使用 get_session 上下文管理器
         async with db_service.get_session() as session:
@@ -61,7 +62,7 @@ async def get_conversation_history(
 ):
     """
     获取对话历史列表
-    
+
     Args:
         page: 页码
         page_size: 每页数量
@@ -69,14 +70,14 @@ async def get_conversation_history(
         end_date: 结束日期
         current_user: 当前用户信息
         conversation_repo: 对话历史 Repository（依赖注入）
-        
+
     Returns:
         ConversationListResponse: 对话历史列表响应
     """
     try:
-        
+
         skip = (page - 1) * page_size
-        
+
         # 获取对话历史
         conversations = await conversation_repo.get_conversations(
             skip=skip,
@@ -84,13 +85,13 @@ async def get_conversation_history(
             start_date=start_date,
             end_date=end_date
         )
-        
+
         # 获取总数
         total = await conversation_repo.count_conversations(
             start_date=start_date,
             end_date=end_date
         )
-        
+
         # 格式化响应
         conversation_responses = [
             ConversationResponse(
@@ -104,14 +105,14 @@ async def get_conversation_history(
             )
             for conv in conversations
         ]
-        
+
         return ConversationListResponse(
             conversations=conversation_responses,
             total=total,
             page=page,
             page_size=page_size
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -127,19 +128,19 @@ async def get_session_conversations(
 ):
     """
     获取指定会话的对话记录
-    
+
     Args:
         session_id: 会话ID
         current_user: 当前用户信息
         conversation_repo: 对话历史 Repository（依赖注入）
-        
+
     Returns:
         List[ConversationResponse]: 会话对话记录
     """
     try:
-        
+
         conversations = await conversation_repo.get_conversation_by_session_id(session_id)
-        
+
         conversation_responses = [
             ConversationResponse(
                 id=str(conv.id),
@@ -152,9 +153,9 @@ async def get_session_conversations(
             )
             for conv in conversations
         ]
-        
+
         return conversation_responses
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

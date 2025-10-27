@@ -5,7 +5,7 @@
 """
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.core.admin_security_bcrypt import AdminSecurity
 from src.core.config import get_settings
@@ -29,30 +29,30 @@ async def verify_admin_token(
 ) -> dict:
     """
     验证管理员 JWT 访问令牌
-    
+
     仅接受访问令牌（access token），拒绝刷新令牌（refresh token）。
     刷新令牌应仅用于 /auth/refresh 端点获取新的访问令牌。
-    
+
     Args:
         credentials: HTTP Bearer 认证凭据
         admin_security: 管理员安全认证实例
-        
+
     Returns:
         dict: 解码后的 token 数据
-        
+
     Raises:
         HTTPException: 认证失败时抛出 401 错误
     """
     token = credentials.credentials
     payload = admin_security.verify_token(token)
-    
+
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="无效的认证令牌",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # 检查 token 类型，拒绝刷新令牌
     token_type = payload.get("type")
     if token_type != "access":
@@ -61,5 +61,5 @@ async def verify_admin_token(
             detail="无效的令牌类型，请使用访问令牌",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     return payload

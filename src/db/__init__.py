@@ -5,11 +5,11 @@
 """
 
 from .base import Base, DatabaseService
-from .models import ConversationHistory, AdminAuditLog
+from .models import AdminAuditLog, ConversationHistory
 
 __all__ = [
     "Base",
-    "DatabaseService", 
+    "DatabaseService",
     "ConversationHistory",
     "AdminAuditLog",
 ]
