@@ -378,7 +378,8 @@ async def call_llm_node(state: AgentState) -> dict[str, Any]:
 
         logger.info(f"🤖 LLM response generated (mode: {'RAG' if retrieved_docs else 'direct'})")
 
-        return {
+        # 保留 confidence_score（如果之前的节点设置了）
+        result = {
             "messages": [response],
             "tool_calls": state.get("tool_calls", []) + [
                 {
@@ -388,6 +389,12 @@ async def call_llm_node(state: AgentState) -> dict[str, Any]:
                 }
             ]
         }
+        
+        # 保留 confidence_score（从前一个节点传递）
+        if "confidence_score" in state and state["confidence_score"] is not None:
+            result["confidence_score"] = state["confidence_score"]
+        
+        return result
 
     except Exception as e:
         logger.error(f"❌ LLM call failed: {e}")
