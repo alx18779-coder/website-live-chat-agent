@@ -11,6 +11,7 @@ from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
 from src.services.llm_factory import create_embeddings
+from src.services.milvus_service import milvus_service  # noqa: F401 - needed for test mocking
 
 logger = logging.getLogger(__name__)
 
