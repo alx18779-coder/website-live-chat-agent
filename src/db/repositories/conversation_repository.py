@@ -180,3 +180,59 @@ class ConversationRepository:
         )
         self.session.add(audit_log)
         await self.session.commit()
+
+    async def create_conversation(
+        self,
+        session_id: str,
+        user_message: str,
+        ai_response: str,
+        retrieved_docs: Optional[List[Dict[str, Any]]] = None,
+        confidence_score: Optional[float] = None
+    ) -> ConversationHistory:
+        """
+        创建对话历史记录
+
+        Args:
+            session_id: 会话ID（用于关联同一会话的多轮对话）
+            user_message: 用户消息内容
+            ai_response: AI 回复内容
+            retrieved_docs: 检索到的知识库文档列表，格式：
+                           [{"content": "...", "score": 0.95, "metadata": {...}}, ...]
+            confidence_score: 对话置信度分数（0.0-1.0）
+
+        Returns:
+            ConversationHistory: 创建的对话记录对象（包含生成的 ID 和时间戳）
+
+        Raises:
+            SQLAlchemyError: 数据库操作失败时抛出
+
+        Example:
+            >>> repo = ConversationRepository(session)
+            >>> conversation = await repo.create_conversation(
+            ...     session_id="session-123",
+            ...     user_message="产品价格是多少？",
+            ...     ai_response="我们的产品价格为 299 元。",
+            ...     retrieved_docs=[{"content": "价格说明...", "score": 0.95}],
+            ...     confidence_score=0.92
+            ... )
+            >>> print(conversation.id)  # UUID对象
+        """
+        # 创建对话记录对象
+        conversation = ConversationHistory(
+            session_id=session_id,
+            user_message=user_message,
+            ai_response=ai_response,
+            retrieved_docs=retrieved_docs,
+            confidence_score=confidence_score
+        )
+
+        # 添加到会话
+        self.session.add(conversation)
+
+        # 提交到数据库
+        await self.session.commit()
+
+        # 刷新对象以获取数据库生成的字段（id, created_at）
+        await self.session.refresh(conversation)
+
+        return conversation
