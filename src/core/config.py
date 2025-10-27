@@ -6,8 +6,9 @@
 """
 
 from typing import Literal
+import secrets
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -322,6 +323,45 @@ class Settings(BaseSettings):
         case_sensitive=False,  # 环境变量不区分大小写
         extra="ignore",  # 忽略额外的环境变量
     )
+
+    @field_validator("admin_password")
+    @classmethod
+    def validate_admin_password(cls, v: str) -> str:
+        """验证管理员密码不能为空"""
+        if not v or v.strip() == "":
+            raise ValueError(
+                "管理员密码不能为空！请在环境变量中设置 ADMIN_PASSWORD。\n"
+                "安全建议：密码长度至少 12 位，包含大小写字母、数字和特殊字符。\n"
+                "示例：export ADMIN_PASSWORD='YourSecurePassword@123'"
+            )
+        if len(v) < 8:
+            raise ValueError(
+                f"管理员密码长度不足（当前 {len(v)} 位，要求至少 8 位）！\n"
+                "安全建议：密码长度至少 12 位，包含大小写字母、数字和特殊字符。"
+            )
+        return v
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def validate_jwt_secret_key(cls, v: str) -> str:
+        """验证 JWT 密钥不能为空"""
+        if not v or v.strip() == "":
+            # 生成一个安全的随机密钥作为提示
+            suggested_key = secrets.token_urlsafe(32)
+            raise ValueError(
+                "JWT 密钥不能为空！请在环境变量中设置 JWT_SECRET_KEY。\n"
+                "安全建议：使用至少 32 字节的随机字符串。\n"
+                f"可以使用以下命令生成安全密钥：\n"
+                f"  python -c 'import secrets; print(secrets.token_urlsafe(32))'\n"
+                f"示例密钥（仅供参考，请生成自己的密钥）：\n"
+                f"  export JWT_SECRET_KEY='{suggested_key}'"
+            )
+        if len(v) < 32:
+            raise ValueError(
+                f"JWT 密钥长度不足（当前 {len(v)} 位，要求至少 32 位）！\n"
+                "安全建议：使用至少 32 字节的随机字符串以确保 JWT 安全。"
+            )
+        return v
 
     @property
     def postgres_url(self) -> str:

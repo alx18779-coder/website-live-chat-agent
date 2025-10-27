@@ -38,6 +38,9 @@ os.environ.update({
     "EMBEDDING_DIM": "1536",
     "LANGGRAPH_CHECKPOINTER": "memory",
     "SKIP_MILVUS_INIT": "1",  # 测试环境跳过Milvus初始化，避免卡住
+    # 管理员认证配置（必填，用于安全验证）
+    "ADMIN_PASSWORD": "TestSecurePassword123!",
+    "JWT_SECRET_KEY": "test-jwt-secret-key-min-32-chars-long-for-security",
 })
 
 
