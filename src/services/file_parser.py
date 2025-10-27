@@ -270,3 +270,5 @@ class FileParser:
         """获取最大文件大小（字节）"""
         return self.MAX_FILE_SIZE
 
+
+

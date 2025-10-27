@@ -3,8 +3,10 @@
 """
 
 import pytest
+import time
 from datetime import datetime, timedelta
-from src.core.admin_security import AdminSecurity
+from unittest.mock import patch
+from src.core.admin_security_bcrypt import AdminSecurity
 
 
 class TestAdminSecurity:
@@ -64,13 +66,19 @@ class TestAdminSecurity:
     
     def test_token_expiration(self):
         """测试 token 过期"""
-        # 创建短期过期的 security 实例
-        short_security = AdminSecurity(self.secret_key, 0)  # 0 分钟过期
-        data = {"username": "admin"}
-        token = short_security.create_access_token(data)
+        # 使用 patch 创建一个过期的 token
+        past_time = datetime.utcnow() - timedelta(hours=2)  # 2小时前
         
-        # 立即验证应该失败（已过期）
-        payload = short_security.verify_token(token)
+        with patch('src.core.admin_security_bcrypt.datetime') as mock_datetime:
+            # 创建 token 时使用过去的时间
+            mock_datetime.utcnow.return_value = past_time
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            
+            data = {"username": "admin"}
+            expired_token = self.security.create_access_token(data)
+        
+        # 验证应该失败（已过期）
+        payload = self.security.verify_token(expired_token)
         assert payload is None
     
     def test_invalid_token(self):
@@ -90,20 +98,21 @@ class TestAdminSecurity:
     def test_token_with_expiration(self):
         """测试 token 包含过期时间"""
         data = {"username": "admin"}
+        before = time.time()
         token = self.security.create_access_token(data)
+        after = time.time()
+        
         payload = self.security.verify_token(token)
         
         # 应该包含过期时间
         assert "exp" in payload
         
-        # 过期时间应该是未来时间
-        exp_time = datetime.fromtimestamp(payload["exp"])
-        now = datetime.utcnow()
-        assert exp_time > now
+        # 过期时间应该在未来
+        assert payload["exp"] > after
         
-        # 过期时间应该在配置的分钟数内
-        expected_exp = now + timedelta(minutes=self.expire_minutes)
-        time_diff = abs((exp_time - expected_exp).total_seconds())
+        # 过期时间应该在配置的分钟数内（允许一些误差）
+        expected_exp = before + (self.expire_minutes * 60)
+        time_diff = abs(payload["exp"] - expected_exp)
         assert time_diff < 60  # 允许1分钟误差
     
     def test_different_passwords(self):

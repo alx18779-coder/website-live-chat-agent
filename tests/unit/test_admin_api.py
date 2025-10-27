@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch, AsyncMock
 from fastapi.testclient import TestClient
 from fastapi import HTTPException
 from src.main import app
-from src.core.admin_security import AdminSecurity
+from src.core.admin_security_bcrypt import AdminSecurity
 
 
 class TestAdminAPI:
@@ -49,7 +49,9 @@ class TestAdminAPI:
         
         mock_session = Mock()
         mock_session.execute = AsyncMock(return_value=Mock(scalar_one_or_none=Mock(return_value=mock_admin_user)))
-        mock_db_service.return_value.async_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_db_service.return_value.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_db_service.return_value.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
+        mock_db_service.return_value.engine.dispose = AsyncMock()  # Mock engine.dispose()
         
         # 测试登录
         login_data = {
@@ -82,7 +84,9 @@ class TestAdminAPI:
         # Mock 数据库查询结果 - 用户不存在
         mock_session = Mock()
         mock_session.execute = AsyncMock(return_value=Mock(scalar_one_or_none=Mock(return_value=None)))
-        mock_db_service.return_value.async_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_db_service.return_value.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_db_service.return_value.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
+        mock_db_service.return_value.engine.dispose = AsyncMock()
         
         # 测试错误用户名
         login_data = {
@@ -113,7 +117,9 @@ class TestAdminAPI:
         
         mock_session = Mock()
         mock_session.execute = AsyncMock(return_value=Mock(scalar_one_or_none=Mock(return_value=mock_admin_user)))
-        mock_db_service.return_value.async_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_db_service.return_value.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_db_service.return_value.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
+        mock_db_service.return_value.engine.dispose = AsyncMock()
         
         # 测试错误密码
         login_data = {
@@ -149,17 +155,26 @@ class TestAdminAPI:
     @patch('src.repositories.milvus.base_milvus_repository.get_milvus_client')
     def test_protected_endpoint_with_valid_token(self, mock_get_milvus_client):
         """测试受保护端点 - 有效 token"""
-        # 创建有效 token
-        token = self.security.create_access_token({"username": "admin"})
-        headers = {"Authorization": f"Bearer {token}"}
+        from src.api.admin.dependencies import get_admin_security
         
-        # Mock Milvus 客户端
-        mock_milvus_client = Mock()
-        mock_milvus_client.query.return_value = []
-        mock_get_milvus_client.return_value = mock_milvus_client
+        # 使用 FastAPI 的 dependency_overrides 来 mock AdminSecurity 依赖
+        app.dependency_overrides[get_admin_security] = lambda: self.security
         
-        response = self.client.get("/api/admin/knowledge/documents", headers=headers)
-        assert response.status_code == 200
+        try:
+            # 创建有效 token
+            token = self.security.create_access_token({"username": "admin"})
+            headers = {"Authorization": f"Bearer {token}"}
+            
+            # Mock Milvus 客户端
+            mock_milvus_client = Mock()
+            mock_milvus_client.query.return_value = []
+            mock_get_milvus_client.return_value = mock_milvus_client
+            
+            response = self.client.get("/api/admin/knowledge/documents", headers=headers)
+            assert response.status_code == 200
+        finally:
+            # 清理 dependency_overrides
+            app.dependency_overrides.clear()
     
     def test_token_refresh(self):
         """测试 token 刷新"""
@@ -210,7 +225,9 @@ class TestAdminAPI:
         
         mock_session = Mock()
         mock_session.execute = AsyncMock(return_value=Mock(scalar_one_or_none=Mock(return_value=mock_admin_user)))
-        mock_db_service.return_value.async_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_db_service.return_value.get_session.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_db_service.return_value.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
+        mock_db_service.return_value.engine.dispose = AsyncMock()
         
         # 登录获取 token
         login_data = {

@@ -4,7 +4,7 @@
 
 import pytest
 from datetime import datetime, timedelta
-from src.core.admin_security import AdminSecurity
+from src.core.admin_security_bcrypt import AdminSecurity
 
 
 class TestAdminSecuritySimple:

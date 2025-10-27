@@ -66,8 +66,7 @@ class TestFileUploadAPI:
         with patch('src.api.admin.knowledge.DatabaseService') as mock_db_service, \
              patch('src.api.admin.knowledge.FileUploadRepository') as mock_repo, \
              patch('src.api.admin.knowledge.FileUploadProcessor') as mock_processor, \
-             patch('src.api.admin.knowledge._detect_file_type', return_value='txt'), \
-             patch('src.api.admin.knowledge.magic.from_buffer', return_value='text/plain'):
+             patch('src.api.admin.knowledge._detect_file_type', return_value='txt'):
             
             # 模拟数据库服务
             mock_session = AsyncMock()
@@ -76,7 +75,7 @@ class TestFileUploadAPI:
             # 模拟上传记录创建
             mock_upload_record = MagicMock()
             mock_upload_record.id = "test-upload-id"
-            mock_repo.return_value.create_upload_record.return_value = mock_upload_record
+            mock_repo.return_value.create_upload_record = AsyncMock(return_value=mock_upload_record)
             
             # 执行上传
             response = self.client.post(
@@ -161,7 +160,7 @@ class TestFileUploadAPI:
             mock_upload.created_at = "2023-01-01T00:00:00"
             mock_upload.processed_at = "2023-01-01T00:01:00"
             
-            mock_repo.return_value.get_recent_uploads.return_value = [mock_upload]
+            mock_repo.return_value.get_recent_uploads = AsyncMock(return_value=[mock_upload])
             
             # 执行请求
             response = self.client.get(
@@ -201,7 +200,7 @@ class TestFileUploadAPI:
             mock_upload.created_at = "2023-01-01T00:00:00"
             mock_upload.processed_at = None
             
-            mock_repo.return_value.get_upload_by_id.return_value = mock_upload
+            mock_repo.return_value.get_upload_by_id = AsyncMock(return_value=mock_upload)
             
             # 执行请求
             response = self.client.get(
@@ -228,7 +227,7 @@ class TestFileUploadAPI:
             mock_db_service.return_value.get_session.return_value.__aenter__.return_value = mock_session
             
             # 模拟找不到记录
-            mock_repo.return_value.get_upload_by_id.return_value = None
+            mock_repo.return_value.get_upload_by_id = AsyncMock(return_value=None)
             
             # 执行请求
             response = self.client.get(
@@ -334,32 +333,38 @@ class TestFileUploadAPI:
         assert "文件大小超过限制" in response.json()["detail"]
     
     def test_detect_file_type_pdf(self):
-        """测试 PDF 文件类型检测"""
+        """测试 PDF 文件类型检测（基于扩展名，magic 不可用）"""
         from src.api.admin.knowledge import _detect_file_type
         
         pdf_content = b"PDF content"
         
-        with patch('src.api.admin.knowledge.magic.from_buffer', return_value='application/pdf'):
+        # Mock magic 不可用（ImportError）
+        with patch('builtins.__import__', side_effect=lambda name, *args, **kwargs: 
+                   __import__(name, *args, **kwargs) if name != 'magic' else (_ for _ in ()).throw(ImportError())):
             result = _detect_file_type(pdf_content, "test.pdf")
             assert result == "pdf"
     
     def test_detect_file_type_markdown(self):
-        """测试 Markdown 文件类型检测"""
+        """测试 Markdown 文件类型检测（基于扩展名，magic 不可用）"""
         from src.api.admin.knowledge import _detect_file_type
         
         md_content = b"# Markdown content"
         
-        with patch('src.api.admin.knowledge.magic.from_buffer', return_value='text/markdown'):
+        # Mock magic 不可用（ImportError）
+        with patch('builtins.__import__', side_effect=lambda name, *args, **kwargs: 
+                   __import__(name, *args, **kwargs) if name != 'magic' else (_ for _ in ()).throw(ImportError())):
             result = _detect_file_type(md_content, "test.md")
             assert result == "markdown"
     
     def test_detect_file_type_by_extension(self):
-        """测试通过扩展名检测文件类型"""
+        """测试通过扩展名检测文件类型（magic 不可用时的回退逻辑）"""
         from src.api.admin.knowledge import _detect_file_type
         
         content = b"Some content"
         
-        with patch('src.api.admin.knowledge.magic.from_buffer', return_value='unknown/type'):
+        # Mock magic 不可用
+        with patch('builtins.__import__', side_effect=lambda name, *args, **kwargs: 
+                   __import__(name, *args, **kwargs) if name != 'magic' else (_ for _ in ()).throw(ImportError())):
             # 测试各种扩展名
             assert _detect_file_type(content, "test.pdf") == "pdf"
             assert _detect_file_type(content, "test.md") == "markdown"
@@ -371,7 +376,11 @@ class TestFileUploadAPI:
         
         content = b"Some content"
         
-        with patch('src.api.admin.knowledge.magic.from_buffer', return_value='application/unsupported'):
+        # Mock magic 不可用
+        with patch('builtins.__import__', side_effect=lambda name, *args, **kwargs: 
+                   __import__(name, *args, **kwargs) if name != 'magic' else (_ for _ in ()).throw(ImportError())):
             with pytest.raises(ValueError, match="不支持的文件类型"):
                 _detect_file_type(content, "test.xyz")
+
+
 

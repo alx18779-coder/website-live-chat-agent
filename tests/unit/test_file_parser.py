@@ -86,7 +86,8 @@ class TestFileParser:
     
     def test_smart_chunk_simple_text(self):
         """测试简单文本分块"""
-        text = "This is a simple text for chunking."
+        # 使用长度超过 MIN_CHUNK_SIZE (50) 的文本
+        text = "This is a simple text for chunking that is long enough to pass the minimum chunk size requirement."
         
         chunks = self.parser._smart_chunk(text)
         
@@ -109,16 +110,17 @@ class TestFileParser:
     
     def test_smart_chunk_paragraphs(self):
         """测试段落分块"""
-        text = """First paragraph with some content.
+        # 每个段落都要超过 MIN_CHUNK_SIZE (50)
+        text = """First paragraph with some content that is long enough to be kept as a chunk.
 
-Second paragraph with different content.
+Second paragraph with different content that is also long enough.
 
-Third paragraph with more content."""
+Third paragraph also with content that meets the minimum size requirement."""
         
         chunks = self.parser._smart_chunk(text)
         
         # 应该按段落分割
-        assert len(chunks) >= 3
+        assert len(chunks) == 3
         assert "First paragraph" in chunks[0]
         assert "Second paragraph" in chunks[1]
         assert "Third paragraph" in chunks[2]
@@ -132,34 +134,32 @@ Third paragraph with more content."""
         assert chunks == []
     
     def test_detect_file_type_pdf(self):
-        """测试 PDF 文件类型检测"""
+        """测试 PDF 文件类型检测（基于扩展名，magic 不可用）"""
         pdf_content = b"PDF content"
         
-        with patch('src.services.file_parser.magic') as mock_magic:
-            mock_magic.from_buffer.return_value = 'application/pdf'
-            
+        # Mock magic 不可用（ImportError）
+        with patch('builtins.__import__', side_effect=lambda name, *args, **kwargs: 
+                   __import__(name, *args, **kwargs) if name != 'magic' else (_ for _ in ()).throw(ImportError())):
             result = self.parser._detect_file_type(pdf_content, "test.pdf")
-            
             assert result == "pdf"
     
     def test_detect_file_type_markdown(self):
-        """测试 Markdown 文件类型检测"""
+        """测试 Markdown 文件类型检测（基于扩展名，magic 不可用）"""
         md_content = b"# Markdown content"
         
-        with patch('src.services.file_parser.magic') as mock_magic:
-            mock_magic.from_buffer.return_value = 'text/markdown'
-            
+        # Mock magic 不可用（ImportError）
+        with patch('builtins.__import__', side_effect=lambda name, *args, **kwargs: 
+                   __import__(name, *args, **kwargs) if name != 'magic' else (_ for _ in ()).throw(ImportError())):
             result = self.parser._detect_file_type(md_content, "test.md")
-            
             assert result == "markdown"
     
     def test_detect_file_type_by_extension(self):
-        """测试通过文件扩展名检测类型"""
+        """测试通过文件扩展名检测类型（magic 不可用时的回退逻辑）"""
         content = b"Some content"
         
-        with patch('src.services.file_parser.magic') as mock_magic:
-            mock_magic.from_buffer.return_value = 'unknown/type'
-            
+        # Mock magic 不可用
+        with patch('builtins.__import__', side_effect=lambda name, *args, **kwargs: 
+                   __import__(name, *args, **kwargs) if name != 'magic' else (_ for _ in ()).throw(ImportError())):
             # 测试 PDF 扩展名
             result = self.parser._detect_file_type(content, "test.pdf")
             assert result == "pdf"
@@ -176,9 +176,9 @@ Third paragraph with more content."""
         """测试不支持的文件类型"""
         content = b"Some content"
         
-        with patch('src.services.file_parser.magic') as mock_magic:
-            mock_magic.from_buffer.return_value = 'application/unsupported'
-            
+        # Mock magic 不可用
+        with patch('builtins.__import__', side_effect=lambda name, *args, **kwargs: 
+                   __import__(name, *args, **kwargs) if name != 'magic' else (_ for _ in ()).throw(ImportError())):
             with pytest.raises(ValueError, match="不支持的文件类型"):
                 self.parser._detect_file_type(content, "test.xyz")
     
@@ -233,4 +233,6 @@ Third paragraph with more content."""
         
         assert max_size == self.parser.MAX_FILE_SIZE
         assert max_size == 10 * 1024 * 1024  # 10MB
+
+
 
