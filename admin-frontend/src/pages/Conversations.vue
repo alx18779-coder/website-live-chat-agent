@@ -8,6 +8,16 @@
       <!-- 筛选工具栏 -->
       <n-space vertical :size="16">
         <n-space>
+          <n-input
+            v-model:value="sessionIdFilter"
+            placeholder="搜索会话 ID..."
+            clearable
+            style="width: 250px"
+          >
+            <template #prefix>
+              <n-icon><SearchOutlined /></n-icon>
+            </template>
+          </n-input>
           <n-date-picker
             v-model:value="dateRange"
             type="datetimerange"
@@ -167,6 +177,7 @@ const total = ref(0)
 const dateRange = ref<[number, number] | null>(null)
 const startDate = ref<string | undefined>(undefined)
 const endDate = ref<string | undefined>(undefined)
+const sessionIdFilter = ref<string>('')
 
 // 详情对话框
 const showDetailModal = ref(false)
@@ -199,7 +210,8 @@ const columns: DataTableColumns<Conversation> = [
   {
     title: '会话 ID',
     key: 'session_id',
-    width: 180,
+    minWidth: 150,
+    resizable: true,
     ellipsis: {
       tooltip: true
     },
@@ -212,7 +224,8 @@ const columns: DataTableColumns<Conversation> = [
   {
     title: '用户消息',
     key: 'user_message',
-    width: 250,
+    minWidth: 200,
+    resizable: true,
     ellipsis: {
       tooltip: true
     }
@@ -220,7 +233,8 @@ const columns: DataTableColumns<Conversation> = [
   {
     title: 'AI 回复',
     key: 'ai_response',
-    width: 250,
+    minWidth: 300,
+    resizable: true,
     ellipsis: {
       tooltip: true
     }
@@ -257,8 +271,9 @@ const columns: DataTableColumns<Conversation> = [
   {
     title: '操作',
     key: 'actions',
-    width: 100,
+    width: 120,
     align: 'center',
+    fixed: 'right',
     render: (row) => h(
       NButton,
       {
@@ -331,6 +346,7 @@ async function loadConversations() {
       page_size?: number
       start_date?: string
       end_date?: string
+      session_id?: string
     } = {
       page: pagination.page,
       page_size: pagination.pageSize
@@ -338,6 +354,7 @@ async function loadConversations() {
     
     if (startDate.value) params.start_date = startDate.value
     if (endDate.value) params.end_date = endDate.value
+    if (sessionIdFilter.value.trim()) params.session_id = sessionIdFilter.value.trim()
     
     const response: ConversationListResponse = await getConversations(params)
     
@@ -393,6 +410,7 @@ function handleReset() {
   dateRange.value = null
   startDate.value = undefined
   endDate.value = undefined
+  sessionIdFilter.value = ''
   pagination.page = 1
   loadConversations()
 }

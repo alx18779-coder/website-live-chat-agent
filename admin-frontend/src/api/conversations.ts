@@ -31,6 +31,7 @@ export async function getConversations(params: {
   page_size?: number
   start_date?: string
   end_date?: string
+  session_id?: string
 }): Promise<ConversationListResponse> {
   return client.get('/api/admin/conversations/history', { params })
 }

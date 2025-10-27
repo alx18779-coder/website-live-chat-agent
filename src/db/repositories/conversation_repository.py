@@ -25,7 +25,8 @@ class ConversationRepository:
         skip: int = 0,
         limit: int = 20,
         start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
+        end_date: Optional[datetime] = None,
+        session_id: Optional[str] = None
     ) -> List[ConversationHistory]:
         """
         分页查询对话历史
@@ -35,6 +36,7 @@ class ConversationRepository:
             limit: 返回的记录数
             start_date: 开始日期
             end_date: 结束日期
+            session_id: 会话ID（模糊匹配）
 
         Returns:
             List[ConversationHistory]: 对话历史列表
@@ -45,6 +47,8 @@ class ConversationRepository:
             query = query.where(ConversationHistory.created_at >= start_date)
         if end_date:
             query = query.where(ConversationHistory.created_at <= end_date)
+        if session_id:
+            query = query.where(ConversationHistory.session_id.like(f"%{session_id}%"))
 
         query = query.order_by(desc(ConversationHistory.created_at)).offset(skip).limit(limit)
 
@@ -71,7 +75,8 @@ class ConversationRepository:
     async def count_conversations(
         self,
         start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
+        end_date: Optional[datetime] = None,
+        session_id: Optional[str] = None
     ) -> int:
         """
         统计对话总数
@@ -79,6 +84,7 @@ class ConversationRepository:
         Args:
             start_date: 开始日期
             end_date: 结束日期
+            session_id: 会话ID（模糊匹配）
 
         Returns:
             int: 对话总数
@@ -89,6 +95,8 @@ class ConversationRepository:
             query = query.where(ConversationHistory.created_at >= start_date)
         if end_date:
             query = query.where(ConversationHistory.created_at <= end_date)
+        if session_id:
+            query = query.where(ConversationHistory.session_id.like(f"%{session_id}%"))
 
         result = await self.session.execute(query)
         return result.scalar() or 0
