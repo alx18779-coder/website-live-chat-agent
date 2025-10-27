@@ -51,27 +51,28 @@ async def get_conversation_repository():
 
 @router.get("/overview", response_model=OverviewStatsResponse)
 async def get_overview_stats(
-    current_user: dict = Depends(verify_admin_token)
+    current_user: dict = Depends(verify_admin_token),
+    conversation_repo: ConversationRepository = Depends(get_conversation_repository)
 ):
     """
     获取总览统计
     
     Args:
         current_user: 当前用户信息
+        conversation_repo: 对话历史 Repository（依赖注入）
         
     Returns:
         OverviewStatsResponse: 总览统计数据
     """
     try:
-        async for conversation_repo in get_conversation_repository():
-            # 获取会话统计
-            session_stats = await conversation_repo.get_session_stats()
-            
-            return OverviewStatsResponse(
-                total_sessions=session_stats["total_sessions"],
-                today_sessions=session_stats["today_sessions"],
-                avg_confidence=session_stats["avg_confidence"]
-            )
+        # 获取会话统计
+        session_stats = await conversation_repo.get_session_stats()
+        
+        return OverviewStatsResponse(
+            total_sessions=session_stats["total_sessions"],
+            today_sessions=session_stats["today_sessions"],
+            avg_confidence=session_stats["avg_confidence"]
+        )
         
     except Exception as e:
         raise HTTPException(
@@ -83,7 +84,8 @@ async def get_overview_stats(
 @router.get("/daily", response_model=List[DailyStatsResponse])
 async def get_daily_stats(
     days: int = 7,
-    current_user: dict = Depends(verify_admin_token)
+    current_user: dict = Depends(verify_admin_token),
+    conversation_repo: ConversationRepository = Depends(get_conversation_repository)
 ):
     """
     获取每日统计
@@ -91,19 +93,19 @@ async def get_daily_stats(
     Args:
         days: 统计天数
         current_user: 当前用户信息
+        conversation_repo: 对话历史 Repository（依赖注入）
         
     Returns:
         List[DailyStatsResponse]: 每日统计数据
     """
     try:
-        async for conversation_repo in get_conversation_repository():
-            # 获取每日统计
-            daily_stats = await conversation_repo.get_daily_stats(days=days)
-            
-            return [
-                DailyStatsResponse(date=stat["date"], count=stat["count"])
-                for stat in daily_stats
-            ]
+        # 获取每日统计
+        daily_stats = await conversation_repo.get_daily_stats(days=days)
+        
+        return [
+            DailyStatsResponse(date=stat["date"], count=stat["count"])
+            for stat in daily_stats
+        ]
         
     except Exception as e:
         raise HTTPException(

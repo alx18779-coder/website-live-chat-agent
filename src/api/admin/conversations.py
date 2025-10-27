@@ -56,7 +56,8 @@ async def get_conversation_history(
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     start_date: Optional[datetime] = Query(None, description="开始日期"),
     end_date: Optional[datetime] = Query(None, description="结束日期"),
-    current_user: dict = Depends(verify_admin_token)
+    current_user: dict = Depends(verify_admin_token),
+    conversation_repo: ConversationRepository = Depends(get_conversation_repository)
 ):
     """
     获取对话历史列表
@@ -67,12 +68,12 @@ async def get_conversation_history(
         start_date: 开始日期
         end_date: 结束日期
         current_user: 当前用户信息
+        conversation_repo: 对话历史 Repository（依赖注入）
         
     Returns:
         ConversationListResponse: 对话历史列表响应
     """
     try:
-        conversation_repo = await get_conversation_repository()
         
         skip = (page - 1) * page_size
         
@@ -121,7 +122,8 @@ async def get_conversation_history(
 @router.get("/sessions/{session_id}", response_model=List[ConversationResponse])
 async def get_session_conversations(
     session_id: str,
-    current_user: dict = Depends(verify_admin_token)
+    current_user: dict = Depends(verify_admin_token),
+    conversation_repo: ConversationRepository = Depends(get_conversation_repository)
 ):
     """
     获取指定会话的对话记录
@@ -129,12 +131,12 @@ async def get_session_conversations(
     Args:
         session_id: 会话ID
         current_user: 当前用户信息
+        conversation_repo: 对话历史 Repository（依赖注入）
         
     Returns:
         List[ConversationResponse]: 会话对话记录
     """
     try:
-        conversation_repo = await get_conversation_repository()
         
         conversations = await conversation_repo.get_conversation_by_session_id(session_id)
         
