@@ -9,7 +9,7 @@ import time
 import uuid
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage
 
@@ -149,6 +149,7 @@ async def list_models() -> OpenAIModelList:
 @router.post("/chat/completions", response_model=None)
 async def chat_completions(
     request: ChatCompletionRequest,
+    http_request: Request,
 ) -> ChatCompletionResponse | StreamingResponse:
     """
     OpenAI 兼容的 Chat Completions 端点
@@ -206,8 +207,25 @@ async def chat_completions(
     else:
         user_message = last_message.content
 
-    # 生成 session_id（可选：从请求中提取）
-    session_id = f"session-{uuid.uuid4().hex[:12]}"
+    # 获取或生成 session_id
+    # 优先使用客户端提供的 session_id（用于多轮对话追踪）
+    # 如果客户端未提供，则使用自动会话管理（基于客户端指纹）
+    if request.session_id:
+        # 客户端提供了 session_id，直接使用（向后兼容）
+        session_id = request.session_id
+        logger.debug(f"使用客户端提供的 session_id: {session_id}")
+    else:
+        # 使用自动会话管理
+        from src.core.session_manager import get_or_create_session
+
+        session_id = await get_or_create_session(
+            client_ip=http_request.client.host,
+            user_agent=http_request.headers.get("user-agent", "unknown"),
+            user_id=http_request.headers.get("x-user-id")  # 可选，用于已认证用户
+        )
+        logger.debug(f"使用自动会话管理生成的 session_id: {session_id}")
+
+    logger.info(f"💬 Chat request | session_id={session_id} | stream={request.stream}")
 
     # 流式响应
     if request.stream:
